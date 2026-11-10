@@ -5,3 +5,5 @@
 Static site: `index.html`. Deployed on Vercel.
 
 Pushing to `main` redeploys https://showdown-prep-tracker.vercel.app automatically.
+
+Live site: https://showdown-prep-tracker.vercel.app (auto-deploys from `main`).
