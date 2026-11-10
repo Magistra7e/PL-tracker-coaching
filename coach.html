@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Showdown Coach Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="auth" hidden></div>
+<div id="root"><p class="loading">Loading…</p></div>
+<script src="/auth.js"></script>
+<script>
+(function(){
+"use strict";
+var DAYS=[{k:"LL",n:"Light Lower"},{k:"HU",n:"Heavy Upper"},{k:"HL",n:"Heavy Lower"},{k:"LU",n:"Light Upper"}];
+var root=document.getElementById("root"),P=null,lifters=[],sel=null,view={w:1,mode:"bodi"},urls={};
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
+function phaseFor(w){return w<=5?"build":w===6?"circ":w<=9?"sculpt":"noexc";}
+function ago(iso){if(!iso)return "Never";var s=(Date.now()-new Date(iso).getTime())/1000;
+ if(s<3600)return Math.max(1,Math.round(s/60))+" min ago";if(s<86400)return Math.round(s/3600)+" h ago";var d=Math.round(s/86400);return d+(d===1?" day ago":" days ago");}
+function header(sub){return '<header class="top"><div class="wrap"><div class="titlebar"><h1>Coach Dashboard</h1><span class="status">'+esc(sub||"")+'</span></div><div class="userbar"><span>'+esc(SDP.email())+'</span><span><a href="/">My tracker</a> · <button id="signout">Sign out</button></span></div></div></header>';}
+
+function renderList(){
+ var h=header(lifters.length+(lifters.length===1?" lifter":" lifters"))+'<div class="wrap"><main>';
+ h+='<section class="card"><div class="head"><div><h2>Lifters</h2><p class="sub">Everyone who has signed in and saved a workout. Tap a lifter to see their log and videos.</p></div></div>';
+ if(!lifters.length)h+='<p class="empty">No lifters yet. Share the tracker link with your lifters. They show up here after their first save.</p>';
+ else{h+='<div class="scroll"><table class="grid"><thead><tr><th>Lifter</th><th>Week</th><th>Days done</th><th>Videos</th><th>Last saved</th></tr></thead><tbody>';
+  lifters.forEach(function(l){var stale=!l.updatedAt||(Date.now()-new Date(l.updatedAt).getTime())>7*86400000;
+   h+='<tr class="row" data-id="'+esc(l.id)+'" tabindex="0"><td><b>'+esc(l.name)+'</b><br><span class="sub">'+esc(l.email)+'</span></td><td>'+(l.week||"–")+'</td><td>'+l.daysDone+' / 48</td><td>'+l.videos+'</td><td><span class="pill '+(stale?"warn":"ok")+'">'+esc(ago(l.updatedAt))+'</span></td></tr>';});
+  h+='</tbody></table></div>';}
+ h+='</section></main></div>';root.innerHTML=h;}
+
+function renderLifter(){var d=sel.data,logs=d.logs||{},done=d.done||{},videos=d.videos||{},w=view.w;
+ var h=header()+'<div class="wrap"><main><button class="back" id="back">← All lifters</button>';
+ var count=Object.keys(done).filter(function(k){return done[k];}).length;
+ h+='<section class="card"><h2>'+esc(d.name||d.email)+'</h2><p class="sub">'+esc(d.email)+' · last saved '+esc(ago(d.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of 48</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b>'+(d.mode==="coach"?"Coach":"BODi")+'</b><span>accessories they use</span></div></div></section>';
+ h+='<div class="weeks" role="group" aria-label="Week">';
+ for(var i=1;i<=12;i++){h+='<button class="wk" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)">'+i+'<span class="dots">';
+  DAYS.forEach(function(dd){h+='<i class="'+(done[i+"|"+dd.k]?"on":"")+'"></i>';});h+='</span></button>';}
+ h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(view.mode==="bodi"?" selected":"")+'>BODi version</option><option value="coach"'+(view.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
+ DAYS.forEach(function(day){var lifts=P.main[w][day.k]||[];
+  h+='<section class="card"><div class="head"><div><h2>'+day.n+'</h2><p class="sub">Week '+w+'</p></div>'+(done[w+"|"+day.k]?'<span class="pill ok">Done</span>':'<span class="pill">Not done</span>')+'</div>';
+  if(lifts.length){h+='<div class="scroll"><table class="grid"><thead><tr><th>Main lift</th><th>Prescribed</th><th>Weight used</th></tr></thead><tbody>';
+   lifts.forEach(function(l,i){var k=w+"|"+day.k+"|main|"+i,v=videos[k];
+    h+='<tr><td><b>'+esc(l.lift)+'</b><br><span class="sub">'+esc([l.bar,l.bands].filter(Boolean).join(" · "))+'</span></td><td>'+esc([l.pct,l.reps].filter(Boolean).join(" · "))+'</td><td>'+(logs[k]?esc(logs[k])+" lb":'<span class="sub">–</span>')+'</td></tr>';
+    if(v&&v.path)h+='<tr><td colspan="3"><video controls playsinline preload="metadata" data-path="'+esc(v.path)+'" style="width:100%;max-height:360px;border-radius:10px;background:#000"></video><span class="sub">Uploaded '+esc(v.at||"")+'</span></td></tr>';});
+   h+='</tbody></table></div>';}
+  var exs=view.mode==="coach"?((P.origW[w]&&P.origW[w][day.k])||[]):(function(){var p=P.phases[phaseFor(w)].days[day.k];return w===12?p.map(function(e){return [e[0],e[1].slice(0,2)];}):p;})();
+  if(exs.length){h+='<div class="scroll" style="margin-top:10px"><table class="grid"><thead><tr><th>Accessory</th><th>Sets (target reps: weight)</th></tr></thead><tbody>';
+   exs.forEach(function(e){var key=(view.mode==="coach"?"c-":"")+slug(e[0]);
+    var sets=e[1].map(function(r,si){var v=logs[w+"|"+day.k+"|"+key+"|"+si];return esc(r)+": "+(v?"<b>"+esc(v)+"</b>":"–");}).join(" · ");
+    h+='<tr><td>'+esc(e[0])+'</td><td>'+sets+'</td></tr>';});
+   h+='</tbody></table></div>';}
+  h+='</section>';});
+ h+='</main></div>';root.innerHTML=h;
+ Array.prototype.forEach.call(root.querySelectorAll("video[data-path]"),function(el){var p=el.getAttribute("data-path");
+  if(urls[p]){el.src=urls[p];return;}SDP.api("/api/video-url?p="+encodeURIComponent(p)).then(function(r){urls[p]=r.url;el.src=r.url;}).catch(function(){});});
+}
+function openLifter(id){root.innerHTML='<p class="loading">Loading lifter…</p>';
+ SDP.api("/api/lifter?id="+encodeURIComponent(id)).then(function(r){sel=r;view.mode=r.data.mode||"bodi";
+  var wk=0;Object.keys(r.data.logs||{}).concat(Object.keys(r.data.done||{})).forEach(function(k){var n=parseInt(k,10);if(n>wk)wk=n;});view.w=wk||1;
+  history.replaceState(null,"","#"+encodeURIComponent(id));renderLifter();window.scrollTo(0,0);})
+ .catch(function(e){root.innerHTML='<p class="loading err">'+esc(e.message)+'</p>';});}
+function loadList(){root.innerHTML='<p class="loading">Loading lifters…</p>';
+ return SDP.api("/api/lifters").then(function(r){lifters=r.lifters;sel=null;history.replaceState(null,"",location.pathname);renderList();});}
+
+root.addEventListener("click",function(ev){var b=ev.target.closest("button,tr.row");if(!b)return;
+ if(b.id==="signout")SDP.signOut();
+ else if(b.id==="back")loadList();
+ else if(b.dataset.id)openLifter(b.dataset.id);
+ else if(b.dataset.w){view.w=+b.dataset.w;renderLifter();}});
+root.addEventListener("keydown",function(ev){var r=ev.target.closest("tr.row");if(r&&(ev.key==="Enter"||ev.key===" ")){ev.preventDefault();openLifter(r.dataset.id);}});
+root.addEventListener("change",function(ev){if(ev.target.id==="mode"){view.mode=ev.target.value;renderLifter();}});
+
+SDP.start(document.getElementById("auth")).then(function(){root.innerHTML='<p class="loading">Loading…</p>';return SDP.api("/api/program");})
+.then(function(p){P=p;var id=decodeURIComponent((location.hash||"").slice(1));return id?openLifter(id):loadList();})
+.catch(function(e){root.innerHTML='<p class="loading err">'+esc(e.status===403?"This page is for coaches. Ask the tracker owner to add your email as a coach.":(e.message||"Something went wrong."))+'</p>'+(e.status===403?'<p class="loading"><a href="/">Go to my tracker</a></p>':'');});
+})();
+</script>
+</body>
+</html>

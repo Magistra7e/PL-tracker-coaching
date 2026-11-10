@@ -1,0 +1,9 @@
+{
+  "name": "showdown-prep-tracker",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "dependencies": {
+    "@vercel/blob": "latest"
+  }
+}
