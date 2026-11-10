@@ -114,25 +114,25 @@ function S(s){return s.split(",");}
 /* BODi accessory phases. Set labels are the target reps for each set, as written in the BODi weight log. */
 var PHASES={
  build:{name:"The Build",col:"--p-build",weeks:"Weeks 1–5",why:"Most volume, early in prep while the main lifts are lighter.",days:{
-  LL:[["Reverse Lunge",S("12,10,8,6")],["Sumo Squat",S("12,10,8,6")],["Step Up Adductor Squeeze",S("6/6,5/5,4/4,3/3")]],
+  LL:[["Goodmorning",S("12,12,12")],["Heel Dig",S("12,12,12")],["Reverse Lunge",S("12,10,8,6")]],
   HU:[["Incline Chest Press",S("8,8,8")],["Incline Chest Fly",S("8,8,8")],["Hex Press",S("12,10,8")],["Rear Delt Raise",S("10,10,10")],["Overhead Tricep Extension",S("12,10,8,6")],["Close Grip Press",S("12,10,8,6")]],
   HL:[["Deadlift (DB, RDL style)",S("12,12,12")],["Bulgarian Split Squat",S("12/12,10/10,8/8,6/6")],["Side-to-Side Squat",S("12,10,8,6")],["Squat with Calf Raise",S("12,10,8,6")]],
-  LU:[["Mid-Back Row",S("6,8,10,12")],["J Row",S("6/6,8/8,10/10,12/12")],["Rear Delt Fly",S("6,8,10,12")],["Close Grip Row",S("6,6,6")],["W Curl",S("12,10,8,6")],["Hammer Curl 21s",S("21 R,21 L")]]}},
+  LU:[["Mid-Back Row",S("6,8,10,12")],["J Row",S("6/6,8/8,10/10,12/12")],["Rear Delt Fly",S("6,8,10,12")],["Close Grip Row",S("6,6,6")],["Pullover",S("12,12,12")],["W Curl",S("12,10,8,6")],["Hammer Curl 21s",S("21 R,21 L")]]}},
  circ:{name:"Dynamic Circuits",col:"--p-circ",weeks:"Week 6 (deload)",why:"Optional and light. 2 sets each, nothing heavy.",days:{
   LL:[["Small Range Deadlift",S("20,16")],["Glute Pull",S("20,16")],["Goblet Squat Knee Drive",S("20,16")]],
   HU:[["Incline Chest Press",S("20,16")],["Shoulder Press",S("20,16")],["Overhead Tricep Extension",S("20,16")],["Lateral Raise",S("20,16")]],
-  HL:[["Bench Step Up",S("10/10,8/8")],["Revolving Lunges",S("20,16")],["Sumo Squat Calf Raise",S("20,16")]],
+  HL:[["Small Range Deadlift",S("20,16")],["Bench Step Up",S("10/10,8/8")],["Sumo Squat Calf Raise",S("20,16")]],
   LU:[["Underhand Row",S("20,16")],["J Row",S("10/10,8/8")],["Knee Raise Hammer Curl",S("10/10,8/8")]]}},
  sculpt:{name:"Sculpt & Define",col:"--p-sculpt",weeks:"Weeks 7–9",why:"Straight 3×12s. Less volume while the main lifts climb past 85%.",days:{
   LL:[["Goodmorning",S("12,12,12")],["Reverse Lunge Leg Kickback",S("12,12,12")],["Heel Dig",S("12,12,12")]],
-  HU:[["Incline Chest Press",S("12,12,12")],["Incline Fly",S("12,12,12")],["Hex Press",S("12,12,12")],["Lateral Raise",S("7-7-7,7-7-7,7-7-7")],["Overhead Tricep Extension",S("12,12,12")],["Tricep Press",S("12,12,12")]],
+  HU:[["Incline Chest Press",S("12,12,12")],["Incline Fly",S("12,12,12")],["Hex Press",S("12,12,12")],["Lateral Raise",S("7-7-7,7-7-7,7-7-7")],["Rear Delt Fly",S("12,12,12")],["Overhead Tricep Extension",S("12,12,12")],["Tricep Press",S("12,12,12")]],
   HL:[["1½ Deadlift",S("12,12,12")],["Narrow Goblet Squat",S("12,12,12")],["Long Stride Isometric Lunge",S("6/6,6/6,6/6")],["Quad Burner Calf Raise",S("12,12,12")]],
   LU:[["Pullover",S("12,12,12")],["Bent-Over Twisting Row",S("12,12,12")],["Incline J Row",S("12/12,12/12,12/12")],["Close Grip Row",S("12,12,12")],["M Curl",S("12,12,12")],["Hammer Curl",S("12,12,12")]]}},
  noexc:{name:"No Excuses",col:"--p-noexc",weeks:"Weeks 10–12",why:"Shortest sessions, for PR weeks and the deload.",days:{
-  LL:[["Squat Pull",S("12,12,12")],["Heel Dig",S("12,12,12")],["Sumo Squat Bench Tap",S("12,12,12")]],
+  LL:[["Goodmorning",S("12,12,12")],["Heel Dig",S("12,12,12")],["Squat Pull",S("12,12,12")]],
   HU:[["Hex Press",S("8,10,12")],["Squeeze Press",S("30s,30s,30s")],["Rear Delt Fly",S("12,12,12")],["Close Grip Press",S("12,12,12")],["Overhead Tricep Extension",S("12,12,12")]],
-  HL:[["Bulgarian Split Squat",S("6/6,6/6,6/6")],["Long Lunge",S("6/6,6/6,6/6")],["Squat Calf Raise",S("12,12,12")]],
-  LU:[["Row",S("8,10,12")],["Close Grip Row",S("8,10,12")],["J Row",S("12,12,12")],["Hammer Curl",S("12,12,12")],["Neutral Curl",S("12,12,12")]]}}
+  HL:[["Deadlift (DB, RDL style)",S("12,12,12")],["Bulgarian Split Squat",S("6/6,6/6,6/6")],["Squat Calf Raise",S("12,12,12")]],
+  LU:[["Pullover",S("12,12,12")],["Row",S("8,10,12")],["Close Grip Row",S("8,10,12")],["J Row",S("12,12,12")],["Hammer Curl",S("12,12,12")],["Neutral Curl",S("12,12,12")]]}}
 };
 function phaseFor(w){return w<=5?"build":w===6?"circ":w<=9?"sculpt":"noexc";}
 /* Coach's accessories per week, as written in Showdown. */
@@ -218,7 +218,7 @@ function render(){
  var ph=PHASES[phaseFor(cur.w)];
  var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>Showdown Prep</h1><span class="status" id="status"></span></div><div class="weeks" role="group" aria-label="Week">';
  for(var w=1;w<=12;w++){var pc=PHASES[phaseFor(w)].col;
-  h+='<button class="wk" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var('+pc+')" aria-label="Week '+w+'">'+w+'<span class="dots">';
+  h+='<button class="wk" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+'">'+w+'<span class="dots">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
  h+='</div><div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
@@ -240,7 +240,7 @@ function render(){
  var exs=exList(cur.w,cur.d);
  var coach=cur.mode==="coach";
  if(coach)h+='<section class="card" style="--pc:var(--ink)"><div class="head"><div><h2>Accessories</h2><p class="sub">Your coach\'s accessories, as written in Showdown.</p></div><span class="phase">Coach\'s program</span></div>';
- else h+='<section class="card" style="--pc:var('+ph.col+')"><div class="head"><div><h2>Accessories</h2><p class="sub">'+esc(ph.why)+'</p></div><span class="phase">'+esc(ph.name)+' · '+esc(ph.weeks)+'</span></div>';
+ else h+='<section class="card" style="--pc:var('+ph.col+')"><div class="head"><div><h2>Accessories</h2><p class="sub">BODi moves matched to your coach\'s accessories.</p></div></div>';
  if(!exs.length)h+='<p class="empty">No accessories listed for this day.</p>';
  exs.forEach(function(e,ei){var nm=e[0];h+='<div class="ex"><div class="nm"><span>'+esc(nm)+'</span><small>'+e[1].length+' sets</small></div><div class="sets">';
   e[1].forEach(function(r,si){var k=cur.w+"|"+cur.d+"|"+exKey(nm)+"|"+si,id="x"+ei+"s"+si;
@@ -251,9 +251,6 @@ function render(){
  var dk=cur.w+"|"+cur.d,dn=isDone(dk);
  h+='<div class="actions"><button class="btn" id="toggle-done">'+(dn?"Mark not done":"Mark day done")+'</button><button class="btn primary" id="save">Save workout</button></div>';
  h+='<p class="sub">Grey numbers are your last logged weight for that set. Empty boxes keep that hint until you type.</p>';
- h+='<section class="card"><h2>Phases</h2><div class="legend">';
- ["build","circ","sculpt","noexc"].forEach(function(p){h+='<span class="phase" style="--pc:var('+PHASES[p].col+')">'+esc(PHASES[p].name)+' · '+esc(PHASES[p].weeks)+'</span>';});
- h+='</div></section>';
  h+='<section class="card"><details><summary>Back up or restore your log</summary><p>Copy your log and keep it in Notes. Paste it back here to restore it on another phone.</p><div class="actions" style="margin-top:8px"><button class="btn" id="copy-backup">Copy backup</button></div><label for="restore" class="sub" style="display:block;margin-top:10px">Paste a backup</label><textarea id="restore" rows="3"></textarea><div class="actions" style="margin-top:8px"><button class="btn" id="do-restore">Restore</button></div><p class="sub" id="bk-msg" role="status"></p></details></section>';
  h+='</main></div>';
  root.innerHTML=h;renderStatus();
