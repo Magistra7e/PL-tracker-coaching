@@ -52,7 +52,7 @@ function render(){
  h+='</div><div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
   h+='<button class="day" data-d="'+d.k+'" aria-pressed="'+(d.k===cur.d)+'">'+d.n.replace(" ","<br>")+'<span class="chk">'+(dn?"✓ done":"&nbsp;")+'</span></button>';});
- h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version (BODi)</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program (Showdown)</option></select></div></div></header><div class="wrap"><main>';
+ h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program (Showdown)</option></select></div></div></header><div class="wrap"><main>';
  if(P.notes[cur.w])h+='<div class="note"><b>Coach · Week '+cur.w+'</b><br>'+esc(P.notes[cur.w])+'</div>';
  var lifts=P.main[cur.w][cur.d]||[];
  h+='<section class="card"><div class="head"><div><h2>Main lifts</h2><p class="sub">From your coach. Unchanged.</p></div></div>';
