@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Showdown Coach Dashboard</title>
+<title>Coach Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,70 +16,151 @@
 <script>
 (function(){
 "use strict";
-var DAYS=[{k:"LL",n:"Light Lower"},{k:"HU",n:"Heavy Upper"},{k:"HL",n:"Heavy Lower"},{k:"LU",n:"Light Upper"}];
-var root=document.getElementById("root"),P=null,lifters=[],sel=null,view={w:1,mode:"bodi"},urls={};
+var root=document.getElementById("root");
+var tab="lifters",lifters=[],programs=[],defaultId="",sel=null,view={w:1},urls={},ed=null,edW=1,edDirty=false,msg="";
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
-function phaseFor(w){return w<=5?"build":w===6?"circ":w<=9?"sculpt":"noexc";}
 function ago(iso){if(!iso)return "Never";var s=(Date.now()-new Date(iso).getTime())/1000;
  if(s<3600)return Math.max(1,Math.round(s/60))+" min ago";if(s<86400)return Math.round(s/3600)+" h ago";var d=Math.round(s/86400);return d+(d===1?" day ago":" days ago");}
-function header(sub){return '<header class="top"><div class="wrap"><div class="titlebar"><h1>Coach Dashboard</h1><span class="status">'+esc(sub||"")+'</span></div><div class="userbar"><span>'+esc(SDP.email())+'</span><span><a href="/">My tracker</a> · <button id="signout">Sign out</button></span></div></div></header>';}
+function pname(id){var p=programs.filter(function(x){return x.id===id;})[0];return p?p.name:"–";}
+function header(){return '<header class="top"><div class="wrap"><div class="titlebar"><h1>Coach Dashboard</h1></div><div class="userbar"><span>'+esc(SDP.email())+'</span><span><a href="/">My tracker</a> · <button id="signout">Sign out</button></span></div>'+
+ '<div class="days" style="grid-template-columns:1fr 1fr;margin-top:10px" role="group" aria-label="Section"><button class="day" data-tab="lifters" aria-pressed="'+(tab==="lifters")+'">Lifters</button><button class="day" data-tab="programs" aria-pressed="'+(tab==="programs")+'">Programs</button></div></div></header>';}
+function flash(){return msg?'<div class="note">'+esc(msg)+'</div>':'';}
 
+/* ---------- lifters ---------- */
 function renderList(){
- var h=header(lifters.length+(lifters.length===1?" lifter":" lifters"))+'<div class="wrap"><main>';
- h+='<section class="card"><div class="head"><div><h2>Lifters</h2><p class="sub">Everyone who has signed in and saved a workout. Tap a lifter to see their log and videos.</p></div></div>';
+ var h=header()+'<div class="wrap"><main>'+flash();
+ h+='<section class="card"><div class="head"><div><h2>Lifters</h2><p class="sub">Everyone who has signed in and saved a workout. Pick each lifter\'s program here. Tap a name to see their log and videos.</p></div></div>';
  if(!lifters.length)h+='<p class="empty">No lifters yet. Share the tracker link with your lifters. They show up here after their first save.</p>';
- else{h+='<div class="scroll"><table class="grid"><thead><tr><th>Lifter</th><th>Week</th><th>Days done</th><th>Videos</th><th>Last saved</th></tr></thead><tbody>';
+ else{h+='<div class="scroll"><table class="grid"><thead><tr><th>Lifter</th><th>Program</th><th>Week</th><th>Days done</th><th>Videos</th><th>Last saved</th></tr></thead><tbody>';
   lifters.forEach(function(l){var stale=!l.updatedAt||(Date.now()-new Date(l.updatedAt).getTime())>7*86400000;
-   h+='<tr class="row" data-id="'+esc(l.id)+'" tabindex="0"><td><b>'+esc(l.name)+'</b><br><span class="sub">'+esc(l.email)+'</span></td><td>'+(l.week||"–")+'</td><td>'+l.daysDone+' / 48</td><td>'+l.videos+'</td><td><span class="pill '+(stale?"warn":"ok")+'">'+esc(ago(l.updatedAt))+'</span></td></tr>';});
+   var opts=programs.map(function(p){return '<option value="'+esc(p.id)+'"'+(p.id===l.programId?" selected":"")+'>'+esc(p.name)+(p.id===defaultId?" (default)":"")+'</option>';}).join("");
+   h+='<tr><td><button class="back" data-id="'+esc(l.id)+'" style="font-size:15px">'+esc(l.name)+'</button><br><span class="sub">'+esc(l.email)+'</span></td>'+
+    '<td><label class="sr" for="as-'+esc(l.id)+'">Program for '+esc(l.name)+'</label><select class="assign" id="as-'+esc(l.id)+'" data-lifter="'+esc(l.id)+'">'+opts+'</select></td>'+
+    '<td>'+(l.week||"–")+'</td><td>'+l.daysDone+'</td><td>'+l.videos+'</td><td><span class="pill '+(stale?"warn":"ok")+'">'+esc(ago(l.updatedAt))+'</span></td></tr>';});
   h+='</tbody></table></div>';}
  h+='</section></main></div>';root.innerHTML=h;}
 
-function renderLifter(){var d=sel.data,logs=d.logs||{},done=d.done||{},videos=d.videos||{},w=view.w;
+function renderLifter(){var P=sel.program,L=sel.log||{},logs=L.logs||{},done=L.done||{},videos=L.videos||{},w=view.w,DAYS=P.days;
  var h=header()+'<div class="wrap"><main><button class="back" id="back">← All lifters</button>';
  var count=Object.keys(done).filter(function(k){return done[k];}).length;
- h+='<section class="card"><h2>'+esc(d.name||d.email)+'</h2><p class="sub">'+esc(d.email)+' · last saved '+esc(ago(d.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of 48</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b>'+(d.mode==="coach"?"Coach":"Own")+'</b><span>accessories they use</span></div></div></section>';
+ h+='<section class="card"><h2>'+esc(sel.name||sel.email)+'</h2><p class="sub">'+esc(sel.email)+' · last saved '+esc(ago(sel.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of '+(P.weeks.length*DAYS.length)+'</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b style="font-size:18px">'+esc(P.name)+'</b><span>program</span></div></div></section>';
  h+='<div class="weeks" role="group" aria-label="Week">';
- for(var i=1;i<=12;i++){var nd=DAYS.filter(function(dd){return done[i+"|"+dd.k];}).length;
-  h+='<button class="wk'+(nd===4?' full':'')+'" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)" aria-label="Week '+i+', '+nd+' of 4 days done">'+i+'<span class="dots" aria-hidden="true">';
+ for(var i=1;i<=P.weeks.length;i++){var nd=DAYS.filter(function(dd){return done[i+"|"+dd.k];}).length;
+  h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)" aria-label="Week '+i+', '+nd+' of '+DAYS.length+' days done">'+i+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(dd){h+='<i class="'+(done[i+"|"+dd.k]?"on":"")+'"></i>';});h+='</span></button>';}
- h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(view.mode==="bodi"?" selected":"")+'>Lifter\'s version</option><option value="coach"'+(view.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
- DAYS.forEach(function(day){var lifts=P.main[w][day.k]||[];
-  h+='<section class="card"><div class="head"><div><h2>'+day.n+'</h2><p class="sub">Week '+w+'</p></div>'+(done[w+"|"+day.k]?'<span class="pill ok">Done</span>':'<span class="pill">Not done</span>')+'</div>';
-  if(lifts.length){h+='<div class="scroll"><table class="grid"><thead><tr><th>Main lift</th><th>Prescribed</th><th>Weight used</th></tr></thead><tbody>';
-   lifts.forEach(function(l,i){var k=w+"|"+day.k+"|main|"+i,v=videos[k];
+ h+='</div>';
+ var wk=P.weeks[w-1]||{days:{}};
+ if(wk.notes)h+='<div class="note"><b>Week '+w+' note</b><br>'+esc(wk.notes)+'</div>';
+ DAYS.forEach(function(day){var dd=wk.days[day.k]||{main:[],acc:[]};
+  h+='<section class="card"><div class="head"><div><h2>'+esc(day.n)+'</h2><p class="sub">Week '+w+'</p></div>'+(done[w+"|"+day.k]?'<span class="pill ok">Done</span>':'<span class="pill">Not done</span>')+'</div>';
+  if(dd.main.length){h+='<div class="scroll"><table class="grid"><thead><tr><th>Main lift</th><th>Prescribed</th><th>Weight used</th></tr></thead><tbody>';
+   dd.main.forEach(function(l,i){var k=w+"|"+day.k+"|main|"+i,v=videos[k];
     h+='<tr><td><b>'+esc(l.lift)+'</b><br><span class="sub">'+esc([l.bar,l.bands].filter(Boolean).join(" · "))+'</span></td><td>'+esc([l.pct,l.reps].filter(Boolean).join(" · "))+'</td><td>'+(logs[k]?esc(logs[k])+" lb":'<span class="sub">–</span>')+'</td></tr>';
     if(v&&v.path)h+='<tr><td colspan="3"><video controls playsinline preload="metadata" data-path="'+esc(v.path)+'" style="width:100%;max-height:360px;border-radius:10px;background:#000"></video><span class="sub">Uploaded '+esc(v.at||"")+'</span></td></tr>';});
    h+='</tbody></table></div>';}
-  var exs=view.mode==="coach"?((P.origW[w]&&P.origW[w][day.k])||[]):(function(){var p=P.phases[phaseFor(w)].days[day.k];return w===12?p.map(function(e){return [e[0],e[1].slice(0,2)];}):p;})();
-  if(exs.length){h+='<div class="scroll" style="margin-top:10px"><table class="grid"><thead><tr><th>Accessory</th><th>Sets (target reps: weight)</th></tr></thead><tbody>';
-   exs.forEach(function(e){var key=(view.mode==="coach"?"c-":"")+slug(e[0]);
+  if(dd.acc.length){h+='<div class="scroll" style="margin-top:10px"><table class="grid"><thead><tr><th>Accessory</th><th>Sets (target reps: weight)</th></tr></thead><tbody>';
+   dd.acc.forEach(function(e){var key="c-"+slug(e[0]);
     var sets=e[1].map(function(r,si){var v=logs[w+"|"+day.k+"|"+key+"|"+si];return esc(r)+": "+(v?"<b>"+esc(v)+"</b>":"–");}).join(" · ");
     h+='<tr><td>'+esc(e[0])+'</td><td>'+sets+'</td></tr>';});
    h+='</tbody></table></div>';}
+  var own=Object.keys(logs).some(function(k){var p=k.split("|");return p[0]==String(w)&&p[1]===day.k&&p[2]!=="main"&&p[2].indexOf("c-")!==0&&logs[k];});
+  if(own)h+='<p class="sub" style="margin-top:8px">This lifter also logged their own accessory swaps for this day.</p>';
+  if(!dd.main.length&&!dd.acc.length)h+='<p class="empty">Nothing programmed for this day.</p>';
   h+='</section>';});
  h+='</main></div>';root.innerHTML=h;
  Array.prototype.forEach.call(root.querySelectorAll("video[data-path]"),function(el){var p=el.getAttribute("data-path");
   if(urls[p]){el.src=urls[p];return;}SDP.api("/api/video-url?p="+encodeURIComponent(p)).then(function(r){urls[p]=r.url;el.src=r.url;}).catch(function(){});});
 }
 function openLifter(id){root.innerHTML='<p class="loading">Loading lifter…</p>';
- SDP.api("/api/lifter?id="+encodeURIComponent(id)).then(function(r){sel=r;view.mode=r.data.mode||"bodi";
-  var wk=0;Object.keys(r.data.logs||{}).concat(Object.keys(r.data.done||{})).forEach(function(k){var n=parseInt(k,10);if(n>wk)wk=n;});view.w=wk||1;
-  history.replaceState(null,"","#"+encodeURIComponent(id));renderLifter();window.scrollTo(0,0);})
+ SDP.api("/api/lifter?id="+encodeURIComponent(id)).then(function(r){sel=r;
+  var wk=0,L=r.log||{};Object.keys(L.logs||{}).concat(Object.keys(L.done||{})).forEach(function(k){var n=parseInt(k,10);if(n>wk)wk=n;});view.w=Math.min(wk||1,r.program.weeks.length);
+  renderLifter();window.scrollTo(0,0);})
  .catch(function(e){root.innerHTML='<p class="loading err">'+esc(e.message)+'</p>';});}
 function loadList(){root.innerHTML='<p class="loading">Loading lifters…</p>';
- return SDP.api("/api/lifters").then(function(r){lifters=r.lifters;sel=null;history.replaceState(null,"",location.pathname);renderList();});}
+ return SDP.api("/api/lifters").then(function(r){lifters=r.lifters;programs=r.programs;defaultId=r.defaultId;sel=null;renderList();});}
 
-root.addEventListener("click",function(ev){var b=ev.target.closest("button,tr.row");if(!b)return;
- if(b.id==="signout")SDP.signOut();
- else if(b.id==="back")loadList();
- else if(b.dataset.id)openLifter(b.dataset.id);
- else if(b.dataset.w){view.w=+b.dataset.w;renderLifter();}});
-root.addEventListener("keydown",function(ev){var r=ev.target.closest("tr.row");if(r&&(ev.key==="Enter"||ev.key===" ")){ev.preventDefault();openLifter(r.dataset.id);}});
-root.addEventListener("change",function(ev){if(ev.target.id==="mode"){view.mode=ev.target.value;renderLifter();}});
+/* ---------- programs ---------- */
+function renderPrograms(){
+ var h=header()+'<div class="wrap"><main>'+flash();
+ h+='<section class="card"><div class="head"><div><h2>Programs</h2><p class="sub">New lifters get the default program. You can switch any lifter on the Lifters tab.</p></div></div>';
+ programs.forEach(function(p){
+  h+='<div class="ex"><div class="nm"><span>'+esc(p.name)+(p.id===defaultId?' <span class="pill ok">Default</span>':'')+'</span><small>edited '+esc(ago(p.updatedAt))+'</small></div>'+
+   '<div class="vrow" style="margin-top:8px"><button class="mini primary" data-edit="'+esc(p.id)+'">Edit</button><button class="mini" data-copy="'+esc(p.id)+'">Duplicate</button>'+
+   (p.id!==defaultId?'<button class="mini" data-default="'+esc(p.id)+'">Make default</button><button class="mini" data-del="'+esc(p.id)+'">Delete</button>':'')+'</div></div>';});
+ h+='</section>';
+ h+='<section class="card"><h2>New program</h2><p class="sub">Starts blank with 4 training days. To start from an existing program, use Duplicate instead.</p>'+
+  '<div class="vrow" style="margin-top:10px"><label class="sr" for="np-name">Program name</label><input class="vl" id="np-name" placeholder="Program name"><label class="sr" for="np-weeks">Weeks</label><input class="vl" id="np-weeks" type="number" min="1" max="52" value="12" style="flex:0 0 80px" aria-label="Number of weeks"><button class="mini primary" id="np-create">Create</button></div></section>';
+ h+='</main></div>';root.innerHTML=h;}
+function loadPrograms(){root.innerHTML='<p class="loading">Loading programs…</p>';
+ return SDP.api("/api/programs").then(function(r){programs=r.programs;defaultId=r.defaultId;renderPrograms();});}
 
-SDP.start(document.getElementById("auth")).then(function(){root.innerHTML='<p class="loading">Loading…</p>';return SDP.api("/api/program");})
-.then(function(p){P=p;var id=decodeURIComponent((location.hash||"").slice(1));return id?openLifter(id):loadList();})
+/* ---------- editor ---------- */
+function inp(path,value,label,ph,w){return '<label class="sr" for="f-'+path+'">'+esc(label)+'</label><input class="vl" id="f-'+path+'" data-f="'+path+'" value="'+esc(value)+'" placeholder="'+esc(ph||label)+'"'+(w?' style="flex:'+w+'"':'')+'>';}
+function renderEditor(){var P=ed,w=edW,wk=P.weeks[w-1];
+ var h=header()+'<div class="wrap"><main><button class="back" id="ed-back">← All programs</button>'+flash();
+ h+='<section class="card"><h2>Edit program</h2><div class="vrow" style="margin-top:8px">'+inp("name",P.name,"Program name")+'</div>'+
+  '<p class="sub" style="margin-top:8px">'+P.weeks.length+' weeks · '+P.days.length+' days a week. Changes show for lifters after you save.</p></section>';
+ h+='<div class="weeks" role="group" aria-label="Week">';
+ for(var i=1;i<=P.weeks.length;i++)h+='<button class="wk" data-ew="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line);padding:0">'+i+'</button>';
+ h+='</div><div class="vrow"><button class="mini" id="ed-addweek">Add week</button>'+(P.weeks.length>1?'<button class="mini" id="ed-delweek">Remove week '+P.weeks.length+'</button>':'')+(w<P.weeks.length?'<button class="mini" id="ed-copynext">Copy week '+w+' into week '+(w+1)+'</button>':'')+'</div>';
+ h+='<section class="card"><h2>Week '+w+' note</h2><label class="sr" for="f-notes">Week '+w+' note for lifters</label><textarea id="f-notes" data-f="notes" rows="2" style="width:100%;margin-top:6px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:15px var(--body);padding:8px" placeholder="Optional note lifters see this week">'+esc(wk.notes||"")+'</textarea></section>';
+ P.days.forEach(function(day,di){var dd=wk.days[day.k]||(wk.days[day.k]={main:[],acc:[]});
+  h+='<section class="card"><div class="vrow">'+inp("day."+di,day.n,"Day name")+'</div>';
+  h+='<h3 class="sub" style="margin:12px 0 4px;font-weight:600">Main lifts</h3>';
+  dd.main.forEach(function(l,i){var b="main."+day.k+"."+i;
+   h+='<div class="vrow erow">'+inp(b+".lift",l.lift,"Lift","Lift","2 1 120px")+inp(b+".bar",l.bar,"Bar","Bar","1 1 80px")+inp(b+".pct",l.pct,"Percent","%","1 1 60px")+inp(b+".bands",l.bands,"Bands","Bands","1 1 70px")+inp(b+".reps",l.reps,"Sets x reps","Sets×reps","1 1 70px")+'<button class="mini" data-rm="main.'+day.k+'.'+i+'" aria-label="Remove '+esc(l.lift||"lift")+'">✕</button></div>';});
+  h+='<button class="mini" data-add="main.'+day.k+'">+ Main lift</button>';
+  h+='<h3 class="sub" style="margin:14px 0 4px;font-weight:600">Accessories <span style="font-weight:400">(reps per set, separated by commas, like 10,10,10)</span></h3>';
+  dd.acc.forEach(function(a,i){var b="acc."+day.k+"."+i;
+   h+='<div class="vrow" style="margin-bottom:6px">'+inp(b+".name",a[0],"Exercise","Exercise","2 1 140px")+inp(b+".sets",a[1].join(","),"Reps per set","10,10,10","1 1 100px")+'<button class="mini" data-rm="acc.'+day.k+'.'+i+'" aria-label="Remove '+esc(a[0]||"exercise")+'">✕</button></div>';});
+  h+='<button class="mini" data-add="acc.'+day.k+'">+ Accessory</button></section>';});
+ h+='<div class="actions" style="position:sticky;bottom:0;background:var(--bg);padding:10px 0"><button class="btn primary" id="ed-save"'+(edDirty?'':' disabled')+'>'+(edDirty?"Save program":"Saved")+'</button></div>';
+ h+='</main></div>';root.innerHTML=h;}
+function setF(path,v){var p=path.split("."),wk=ed.weeks[edW-1];edDirty=true;
+ if(p[0]==="name")ed.name=v;else if(p[0]==="notes")wk.notes=v;else if(p[0]==="day")ed.days[+p[1]].n=v;
+ else if(p[0]==="main")wk.days[p[1]].main[+p[2]][p[3]]=v;
+ else if(p[0]==="acc"){var a=wk.days[p[1]].acc[+p[2]];if(p[3]==="name")a[0]=v;else a[1]=v.split(",").map(function(x){return x.trim();}).filter(Boolean);}
+ var b=document.getElementById("ed-save");if(b){b.disabled=false;b.textContent="Save program";}}
+function openEditor(id){root.innerHTML='<p class="loading">Loading program…</p>';
+ SDP.api("/api/programs?id="+encodeURIComponent(id)).then(function(r){ed=r.program;edW=1;edDirty=false;msg="";renderEditor();window.scrollTo(0,0);})
+ .catch(function(e){msg=e.message;loadPrograms();});}
+function act(body,done){SDP.api("/api/programs",{method:"POST",body:JSON.stringify(body)}).then(done).catch(function(e){msg=e.message;render();});}
+function render(){if(tab==="lifters"){sel?renderLifter():renderList();}else{ed?renderEditor():renderPrograms();}}
+function leaveEditor(){if(edDirty&&!confirmLeave())return false;ed=null;edDirty=false;return true;}
+function confirmLeave(){var b=document.getElementById("ed-save");if(b)b.textContent="Save first (or tap again to discard)";
+ if(confirmLeave.armed){confirmLeave.armed=false;return true;}confirmLeave.armed=true;return false;}
+
+root.addEventListener("click",function(ev){var b=ev.target.closest("button");if(!b)return;var d=b.dataset;
+ if(b.id==="signout"){SDP.signOut();return;}
+ if(d.tab){if(ed&&!leaveEditor())return;msg="";tab=d.tab;sel=null;(tab==="lifters"?loadList:loadPrograms)();return;}
+ if(b.id==="back"){loadList();return;}
+ if(d.id){openLifter(d.id);return;}
+ if(d.w){view.w=+d.w;renderLifter();return;}
+ if(d.edit){openEditor(d.edit);return;}
+ if(d.copy){act({action:"create",copyFrom:d.copy},function(r){msg="Created "+r.program.name+".";openEditor(r.program.id);});return;}
+ if(d["default"]){act({action:"default",id:d["default"]},function(){msg="Default program updated.";loadPrograms();});return;}
+ if(d.del){if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="Tap again to delete";return;}
+  act({action:"delete",id:d.del},function(){msg="Program deleted. Lifters on it moved to the default.";loadPrograms();});return;}
+ if(b.id==="np-create"){var nm=document.getElementById("np-name").value.trim(),wks=document.getElementById("np-weeks").value;
+  act({action:"create",name:nm||"New program",weeks:wks},function(r){openEditor(r.program.id);});return;}
+ if(b.id==="ed-back"){if(leaveEditor()){msg="";loadPrograms();}return;}
+ if(d.ew){edW=+d.ew;renderEditor();return;}
+ if(b.id==="ed-addweek"){var last=ed.weeks[ed.weeks.length-1];ed.weeks.push(JSON.parse(JSON.stringify(last)));edW=ed.weeks.length;edDirty=true;renderEditor();return;}
+ if(b.id==="ed-delweek"){ed.weeks.pop();edW=Math.min(edW,ed.weeks.length);edDirty=true;renderEditor();return;}
+ if(b.id==="ed-copynext"){ed.weeks[edW]=JSON.parse(JSON.stringify(ed.weeks[edW-1]));edW+=1;edDirty=true;renderEditor();return;}
+ if(d.add){var p=d.add.split("."),dd=ed.weeks[edW-1].days[p[1]];if(p[0]==="main")dd.main.push({lift:"",bar:"",pct:"",bands:"",reps:""});else dd.acc.push(["",[]]);edDirty=true;renderEditor();return;}
+ if(d.rm){var q=d.rm.split(".");ed.weeks[edW-1].days[q[1]][q[0]].splice(+q[2],1);edDirty=true;renderEditor();return;}
+ if(b.id==="ed-save"){b.disabled=true;b.textContent="Saving…";
+  SDP.api("/api/programs",{method:"PUT",body:JSON.stringify({program:ed})}).then(function(r){ed=r.program;edDirty=false;msg="Saved. Lifters see the changes next time they open the tracker.";renderEditor();})
+  .catch(function(e){msg=e.message;edDirty=true;renderEditor();});return;}
+});
+root.addEventListener("input",function(ev){var f=ev.target.dataset&&ev.target.dataset.f;if(f&&ed)setF(f,ev.target.value);});
+root.addEventListener("change",function(ev){var t=ev.target;if(t.classList.contains("assign")){
+ act({action:"assign",lifterId:t.dataset.lifter,programId:t.value},function(){msg="Program updated for that lifter.";loadList();});}});
+window.addEventListener("beforeunload",function(e){if(edDirty){e.preventDefault();e.returnValue="";}});
+
+SDP.start(document.getElementById("auth")).then(function(){return loadList();})
 .catch(function(e){root.innerHTML='<p class="loading err">'+esc(e.status===403?"This page is for coaches. Ask the tracker owner to add your email as a coach.":(e.message||"Something went wrong."))+'</p>'+(e.status===403?'<p class="loading"><a href="/">Go to my tracker</a></p>':'');});
 })();
 </script>

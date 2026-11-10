@@ -16,13 +16,14 @@
 <script>
 (function(){
 "use strict";
-var DAYS=[{k:"LL",n:"Light Lower"},{k:"HU",n:"Heavy Upper"},{k:"HL",n:"Heavy Lower"},{k:"LU",n:"Light Upper"}];
-var P=null; /* program, loaded after sign-in */
+var DAYS=[],WEEKS=0;
+var P=null,B=null; /* assigned program and (Showdown only) the BODi swaps, loaded after sign-in */
+function dayOf(w,k){var wk=P.weeks[w-1];return (wk&&wk.days&&wk.days[k])||{main:[],acc:[]};}
 function phaseFor(w){return w<=5?"build":w===6?"circ":w<=9?"sculpt":"noexc";}
 var root=document.getElementById("root");
 var me={email:"",isCoach:false};
 var state={logs:{},done:{},videos:{}};
-var draft={logs:{},done:{}},DKEY="sdp-draft-v2";
+var draft={logs:{},done:{}},DKEY="sdp-draft-v3";
 var cur={w:1,d:"LL",mode:"bodi"};
 var ui={busy:{},msg:{},urls:{},saving:false,saveErr:""};
 
@@ -31,33 +32,36 @@ function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
 function val(k){return k in draft.logs?draft.logs[k]:(state.logs[k]||"");}
 function isDone(k){return k in draft.done?!!draft.done[k]:!!state.done[k];}
 function dirty(){return Object.keys(draft.logs).length+Object.keys(draft.done).length>0;}
-function saveDraft(){try{localStorage.setItem(DKEY+":"+me.email,JSON.stringify(draft));}catch(e){}}
-function loadDraft(){try{var d=JSON.parse(localStorage.getItem(DKEY+":"+me.email)||"{}")||{};draft={logs:d.logs||{},done:d.done||{}};}catch(e){draft={logs:{},done:{}};}
+function saveDraft(){try{localStorage.setItem(DKEY+":"+me.email+":"+P.id,JSON.stringify(draft));}catch(e){}}
+function loadDraft(){try{var d=JSON.parse(localStorage.getItem(DKEY+":"+me.email+":"+P.id)||"{}")||{};draft={logs:d.logs||{},done:d.done||{}};}catch(e){draft={logs:{},done:{}};}
  Object.keys(draft.logs).forEach(function(k){if((state.logs[k]||"")===draft.logs[k])delete draft.logs[k];});
  Object.keys(draft.done).forEach(function(k){if(!!state.done[k]===!!draft.done[k])delete draft.done[k];});}
-function exList(w,d){if(cur.mode==="coach")return (P.origW[w]&&P.origW[w][d])||[];
- var p=P.phases[phaseFor(w)].days[d];if(w===12)return p.map(function(e){return [e[0],e[1].slice(0,2)];});return p;}
-function exKey(name){return (cur.mode==="coach"?"c-":"")+slug(name);}
+function exList(w,d){if(cur.mode==="coach"||!B)return dayOf(w,d).acc||[];
+ var p=B.phases[phaseFor(w)].days[d];if(w===12)return p.map(function(e){return [e[0],e[1].slice(0,2)];});return p;}
+function exKey(name){return (cur.mode==="coach"||!B?"c-":"")+slug(name);}
 function prevVal(w,d,name,i){var nk=exKey(name);for(var x=w-1;x>=1;x--){var v=val(x+"|"+d+"|"+nk+"|"+i);if(v)return v;}
- for(var y=w-1;y>=1;y--){for(var dd=0;dd<4;dd++){var v2=val(y+"|"+DAYS[dd].k+"|"+nk+"|"+i);if(v2)return v2;}}return "";}
+ for(var y=w-1;y>=1;y--){for(var dd=0;dd<DAYS.length;dd++){var v2=val(y+"|"+DAYS[dd].k+"|"+nk+"|"+i);if(v2)return v2;}}return "";}
 function prevMain(w,d,i){for(var x=w-1;x>=1;x--){var v=val(x+"|"+d+"|main|"+i);if(v)return v;}return "";}
 function mb(n){return (n/1048576).toFixed(n<10485760?1:0)+" MB";}
 
 function render(){
- var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>Showdown Prep</h1><span class="status" id="status"></span></div>';
+ var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>'+esc(P.name)+'</h1><span class="status" id="status"></span></div>';
  h+='<div class="userbar"><span>'+esc(me.email)+'</span><span>'+(me.isCoach?'<a href="/coach">Coach dashboard</a> · ':'')+'<button id="signout">Sign out</button></span></div>';
  h+='<div class="weeks" role="group" aria-label="Week">';
- for(var w=1;w<=12;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
-  h+='<button class="wk'+(nd===4?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of 4 days done">'+w+'<span class="dots" aria-hidden="true">';
+ for(var w=1;w<=WEEKS;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
+  h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of '+DAYS.length+' days done">'+w+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
  h+='</div><div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
   h+='<button class="day" data-d="'+d.k+'" aria-pressed="'+(d.k===cur.d)+'">'+d.n.replace(" ","<br>")+'<span class="chk">'+(dn?"✓ done":"&nbsp;")+'</span></button>';});
- h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program (Showdown)</option></select></div></div></header><div class="wrap"><main>';
- if(P.notes[cur.w])h+='<div class="note"><b>Coach · Week '+cur.w+'</b><br>'+esc(P.notes[cur.w])+'</div>';
- var lifts=P.main[cur.w][cur.d]||[];
+ h+='</div>';
+ if(B)h+='<div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
+ h+='</div></header><div class="wrap"><main>';
+ var wn=(P.weeks[cur.w-1]||{}).notes;
+ if(wn)h+='<div class="note"><b>Coach · Week '+cur.w+'</b><br>'+esc(wn)+'</div>';
+ var lifts=dayOf(cur.w,cur.d).main||[];
  h+='<section class="card"><div class="head"><div><h2>Main lifts</h2><p class="sub">From your coach. Unchanged.</p></div></div>';
- if(!lifts.length)h+='<p class="empty">'+(cur.w===6?"No main lifts this week.":"Nothing programmed for this day.")+'</p>';
+ if(!lifts.length)h+='<p class="empty">'+(lifts.length?"":"Nothing programmed for this day.")+'</p>';
  else{h+='<div class="lifts">';lifts.forEach(function(l,i){var k=cur.w+"|"+cur.d+"|main|"+i,id="m"+i;
   var meta=[l.bar,l.pct,l.bands].filter(Boolean).join(" · ");
   h+='<div class="lift"><div><div class="nm">'+esc(l.lift)+'</div><div class="meta">'+esc(meta)+'</div></div><div class="rx">'+esc(l.reps||"–")+'</div>';
@@ -65,20 +69,20 @@ function render(){
    h+=videoBlock(k,i,l.lift);}
   h+='</div>';});h+='</div>';}
  h+='</section>';
- var exs=exList(cur.w,cur.d),coach=cur.mode==="coach";
- h+='<section class="card"><div class="head"><div><h2>Accessories</h2><p class="sub">'+(coach?"Your coach\'s accessories, as written in Showdown.":"BODi moves matched to your coach\'s accessories.")+'</p></div></div>';
+ var exs=exList(cur.w,cur.d),coach=cur.mode==="coach"||!B;
+ h+='<section class="card"><div class="head"><div><h2>Accessories</h2><p class="sub">'+(coach?"From your coach.":"Your swaps, matched to your coach\'s accessories.")+'</p></div></div>';
  if(!exs.length)h+='<p class="empty">No accessories listed for this day.</p>';
  exs.forEach(function(e,ei){var nm=e[0];h+='<div class="ex"><div class="nm"><span>'+esc(nm)+'</span><small>'+e[1].length+' sets</small></div><div class="sets">';
   e[1].forEach(function(r,si){var k=cur.w+"|"+cur.d+"|"+exKey(nm)+"|"+si,id="x"+ei+"s"+si;
    h+='<div class="set"><label for="'+id+'">'+esc(r)+'</label><input class="w" id="'+id+'" data-k="'+k+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevVal(cur.w,cur.d,nm,si))+'" aria-label="'+esc(nm)+' set '+(si+1)+', '+esc(r)+' reps, weight in pounds"></div>';});
   h+='</div></div>';});
- if(!coach)h+='<details><summary>What these replace</summary><p>'+esc(P.orig[cur.d])+'</p></details>';
+ if(!coach&&B.orig[cur.d])h+='<details><summary>What these replace</summary><p>'+esc(B.orig[cur.d])+'</p></details>';
  h+='</section>';
  var dn=isDone(cur.w+"|"+cur.d);
  h+='<div class="actions"><button class="btn" id="toggle-done">'+(dn?"Mark not done":"Mark day done")+'</button><button class="btn primary" id="save">Save workout</button></div>';
  h+='<p class="sub">Grey numbers are your last logged weight for that set. Your coach sees what you save.</p>';
  h+='</main></div>';
- root.innerHTML=h;renderStatus();loadVideoUrls();
+ root.innerHTML=h;renderStatus();
  var a=document.getElementById("wk"+cur.w),strip=root.querySelector(".weeks");if(a&&strip)strip.scrollLeft=Math.max(0,a.offsetLeft-strip.offsetLeft-(strip.clientWidth-a.offsetWidth)/2);
 }
 function renderStatus(){var el=document.getElementById("status"),b=document.getElementById("save");if(!el)return;
@@ -91,14 +95,11 @@ function renderStatus(){var el=document.getElementById("status"),b=document.getE
 /* ---------- videos ---------- */
 function videoBlock(k,i,lift){var v=state.videos[k],h='<div class="vid" data-vk="'+esc(k)+'">';
  if(ui.busy[k])h+='<p class="vmsg" role="status">'+esc(ui.busy[k])+'</p>';
- else if(v&&v.path)h+='<video controls playsinline preload="metadata" data-path="'+esc(v.path)+'" aria-label="'+esc(lift)+' video"></video><div class="vrow"><span class="sub">Video'+(v.size?" · "+mb(v.size):"")+'</span><label class="mini" for="vf'+i+'">Replace</label><button class="mini" data-vact="remove">Remove</button></div>';
+ else if(v&&v.path)h+='<div class="vrow"><span class="vok">✓ Video uploaded</span><span class="sub">'+esc(v.at||"")+'</span><label class="mini" for="vf'+i+'">Replace</label><button class="mini" data-vact="remove">Remove</button></div>';
  else h+='<div class="vrow"><label class="mini primary" for="vf'+i+'">🎥 Add video</label><span class="sub">Record or pick from your phone</span></div>';
  h+='<input class="sr" type="file" accept="video/*" id="vf'+i+'" data-vk="'+esc(k)+'">';
  if(ui.msg[k])h+='<p class="vmsg err" role="alert">'+esc(ui.msg[k])+'</p>';
  return h+'</div>';}
-function loadVideoUrls(){Array.prototype.forEach.call(root.querySelectorAll("video[data-path]"),function(el){var p=el.getAttribute("data-path");
- if(ui.urls[p]){el.src=ui.urls[p];return;}
- SDP.api("/api/video-url?p="+encodeURIComponent(p)).then(function(r){ui.urls[p]=r.url;el.src=r.url;}).catch(function(){});});}
 function handleFile(k,file){if(!file)return;delete ui.msg[k];
  var m=/\.([a-z0-9]+)$/i.exec(file.name||""),ext=(m?m[1]:"").toLowerCase();
  if(!ext){ext=/quicktime/.test(file.type)?"mov":/webm/.test(file.type)?"webm":"mp4";}
@@ -137,17 +138,18 @@ root.addEventListener("input",function(ev){var t=ev.target;if(!t.dataset||!t.dat
  if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
 window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
 
-function pickStart(){var m=/^#w(\d{1,2})-(ll|hu|hl|lu)(-coach|-bodi)?$/.exec(location.hash||"");
+function pickStart(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
  if(m&&m[3])cur.mode=m[3].slice(1);
- if(m&&+m[1]>=1&&+m[1]<=12){cur.w=+m[1];cur.d=m[2].toUpperCase();return;}
- for(var w=1;w<=12;w++){if(!DAYS.every(function(d){return isDone(w+"|"+d.k);})){cur.w=w;break;}}
- var f=DAYS.filter(function(d){return !isDone(cur.w+"|"+d.k);})[0];cur.d=f?f.k:"LL";}
+ if(m&&+m[1]>=1&&+m[1]<=WEEKS&&DAYS.some(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})){cur.w=+m[1];cur.d=DAYS.filter(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})[0].k;return;}
+ for(var w=1;w<=WEEKS;w++){if(!DAYS.every(function(d){return isDone(w+"|"+d.k);})){cur.w=w;break;}}
+ var f=DAYS.filter(function(d){return !isDone(cur.w+"|"+d.k);})[0];cur.d=f?f.k:DAYS[0].k;}
 
 SDP.start(document.getElementById("auth")).then(function(){
  root.innerHTML='<p class="loading">Loading your log…</p>';
  return Promise.all([SDP.api("/api/program"),SDP.api("/api/me")]);
-}).then(function(res){P=res[0];me=res[1].user;var d=res[1].data||{};
- state={logs:d.logs||{},done:d.done||{},videos:d.videos||{}};if(d.mode)cur.mode=d.mode;
+}).then(function(res){P=res[0].program;B=res[0].bodi;DAYS=P.days;WEEKS=P.weeks.length;me=res[1].user;var d=res[1].data||{};
+ document.title=P.name+" Tracker";if(!B)cur.mode="coach";
+ state={logs:d.logs||{},done:d.done||{},videos:d.videos||{}};if(d.mode&&B)cur.mode=d.mode;
  loadDraft();pickStart();render();
 }).catch(function(e){root.innerHTML='<p class="loading err">'+esc(e.message||"Something went wrong. Reload to try again.")+'</p>';});
 })();

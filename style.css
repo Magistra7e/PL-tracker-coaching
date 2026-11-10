@@ -115,3 +115,5 @@ table.grid tr.row:hover td{background:var(--field)}
 .kv b{display:block;font-family:var(--display);font-size:24px}
 .kv span{font-size:12px;color:var(--muted)}
 #auth:not([hidden])+#root{display:none}
+.vok{font-weight:700;color:var(--ok)}
+.erow{border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}

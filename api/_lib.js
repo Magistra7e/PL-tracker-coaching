@@ -97,20 +97,18 @@ export async function authUser(request) {
 export const safeId = (id) => String(id).replace(/[^a-zA-Z0-9_-]/g, "");
 const lifterPath = (id) => `lifters/${safeId(id)}.json`;
 
-export async function readLifter(id) {
-  const r = await get(lifterPath(id), { access: "private", useCache: false }).catch(() => null);
+export async function readJSON(path) {
+  const r = await get(path, { access: "private", useCache: false }).catch(() => null);
   if (!r || r.statusCode !== 200 || !r.stream) return null;
   return JSON.parse(await new Response(r.stream).text());
 }
-
-export async function writeLifter(id, data) {
-  await put(lifterPath(id), JSON.stringify(data), {
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
+export async function writeJSON(path, data) {
+  await put(path, JSON.stringify(data), {
+    access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
   });
 }
+export const readLifter = (id) => readJSON(lifterPath(id));
+export const writeLifter = (id, data) => writeJSON(lifterPath(id), data);
 
 export async function listLifterIds() {
   const ids = [];
@@ -156,9 +154,17 @@ export async function signedPutUrl(pathname, contentType) {
   return presignedUrl;
 }
 
+/* A lifter's log for one program. Logs saved before programs existed belong to Showdown. */
+export function progLog(d, pid) {
+  const by = (d && d.byProgram) || {};
+  if (by[pid]) return by[pid];
+  if (pid === "showdown" && d && (d.logs || d.done)) return { logs: d.logs || {}, done: d.done || {}, videos: d.videos || {}, mode: d.mode };
+  return { logs: {}, done: {}, videos: {} };
+}
+
 /* Summary the coach dashboard shows for each lifter. */
-export function summarize(id, d) {
-  const logs = d.logs || {}, done = d.done || {}, videos = d.videos || {};
+export function summarize(id, d, pid) {
+  const L = progLog(d, pid), logs = L.logs || {}, done = L.done || {}, videos = L.videos || {};
   const daysDone = Object.keys(done).filter((k) => done[k]).length;
   let week = 0;
   Object.keys(logs).concat(Object.keys(done)).forEach((k) => {
@@ -167,7 +173,6 @@ export function summarize(id, d) {
   });
   return {
     id, email: d.email || "", name: d.name || d.email || "Lifter",
-    updatedAt: d.updatedAt || null, daysDone, week, videos: Object.keys(videos).length,
-    mode: d.mode || "bodi",
+    updatedAt: d.updatedAt || null, daysDone, week, videos: Object.keys(videos).length, programId: pid,
   };
 }

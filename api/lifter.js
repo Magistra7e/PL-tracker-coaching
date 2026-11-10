@@ -1,6 +1,7 @@
-import { json, authUser, readLifter, safeId } from "./_lib.js";
+import { json, authUser, readLifter, safeId, progLog } from "./_lib.js";
+import { getProgram, programIdFor } from "./_programs.js";
 
-/* Coach only: one lifter's full log. */
+/* Coach only: one lifter's log on their assigned program, with the program itself. */
 export async function GET(request) {
   const user = await authUser(request);
   if (!user) return json({ error: "Sign in first." }, 401);
@@ -8,5 +9,6 @@ export async function GET(request) {
   const id = safeId(new URL(request.url).searchParams.get("id") || "");
   const d = id && (await readLifter(id));
   if (!d) return json({ error: "Lifter not found." }, 404);
-  return json({ id, data: d });
+  const pid = await programIdFor(id);
+  return json({ id, name: d.name, email: d.email, updatedAt: d.updatedAt, programId: pid, program: await getProgram(pid), log: progLog(d, pid) });
 }
