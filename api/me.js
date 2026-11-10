@@ -41,5 +41,11 @@ function cleanProfile(p, prev) {
     const n = parseFloat(p.maxes && p.maxes[k]);
     if (n > 0 && n < 2000) maxes[k] = Math.round(n * 100) / 100;
   });
-  return { unit, maxes };
+  const bw = parseFloat(p.bw);
+  const meet = {};
+  ["squat", "bench", "deadlift"].forEach((k) => {
+    const a = p.meet && Array.isArray(p.meet[k]) ? p.meet[k].slice(0, 3).map((n) => parseFloat(n)) : null;
+    if (a && a.every((n) => n > 0 && n < 1000)) meet[k] = a;
+  });
+  return { unit, maxes, bw: bw > 20 && bw < 700 ? bw : undefined, sex: p.sex === "M" ? "M" : p.sex === "F" ? "F" : undefined, meet };
 }

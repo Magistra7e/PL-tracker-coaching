@@ -85,5 +85,22 @@
     return '<figure class="bar"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(fmt(kg) + " kg loaded: " + (names.length ? names.join(", ") + " kg per side" : "empty bar") + (COLLARS ? " plus collars" : "")) + '">' + s + '</svg>' +
       '<figcaption>' + (from ? esc(from) + ' ≈ ' : '') + '<b>' + fmt(kg) + ' kg</b> · per side: ' + (names.length ? names.join(" · ") : "nothing") + (COLLARS ? ' + collar' : '') + (side.left > 0.001 ? ' · ' + fmt(side.left) + ' kg per side can\'t be loaded with these plates' : '') + '</figcaption></figure>';
   }
-  window.Plates = { configure: configure, ALL: ALL.map(function (p) { return p.kg; }), toKg: toKg, fromKg: fromKg, loadable: loadable, suggest: suggest, label: label, barSVG: barSVG, fmt: fmt, liftKind: liftKind };
+  /* DOTS score. Coefficients from the DOTS formula used by OpenPowerlifting. */
+  var DOTS = {
+    M: [-307.75076, 24.0900756, -0.1918759221, 0.0007391293, -0.000001093],
+    F: [-57.96288, 13.6175032, -0.1126655495, 0.0005158568, -0.0000010706]
+  };
+  function dots(totalKg, bwKg, sex) {
+    var c = DOTS[sex === "M" ? "M" : "F"];
+    if (!(totalKg > 0) || !(bwKg > 0)) return null;
+    var bw = Math.min(Math.max(bwKg, 40), sex === "M" ? 210 : 150);
+    var den = c[0] + c[1] * bw + c[2] * bw * bw + c[3] * Math.pow(bw, 3) + c[4] * Math.pow(bw, 4);
+    return Math.round(totalKg * 500 / den * 100) / 100;
+  }
+  /* Starting attempts from a max in kg: about 90%, 95%, 100%, in 2.5 kg steps. */
+  function attempts(maxKg) {
+    if (!(maxKg > 0)) return null;
+    return [0.9, 0.95, 1].map(function (p) { return Math.floor(maxKg * p / 2.5) * 2.5; });
+  }
+  window.Plates = { dots: dots, attempts: attempts, configure: configure, ALL: ALL.map(function (p) { return p.kg; }), toKg: toKg, fromKg: fromKg, loadable: loadable, suggest: suggest, label: label, barSVG: barSVG, fmt: fmt, liftKind: liftKind };
 })();

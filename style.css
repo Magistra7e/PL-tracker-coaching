@@ -123,3 +123,4 @@ figure.bar{margin:4px 0 0}
 figure.bar svg{width:100%;max-width:480px;height:auto;display:block}
 figure.bar figcaption{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 details>summary{list-style-position:inside}
+.meetbtn{width:100%;margin:2px 0 8px;font-size:16px;letter-spacing:.03em;text-transform:uppercase}

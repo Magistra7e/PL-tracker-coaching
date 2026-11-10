@@ -26,7 +26,7 @@ var me={email:"",isCoach:false};
 var state={logs:{},done:{},videos:{}},profile={unit:"lb",maxes:{}};
 var draft={logs:{},done:{}},DKEY="sdp-draft-v3";
 var cur={w:1,d:"LL",mode:"bodi"};
-var ui={busy:{},msg:{},urls:{},saving:false,saveErr:""};
+var ui={busy:{},msg:{},urls:{},att:{},saving:false,saveErr:""};
 
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
@@ -46,14 +46,33 @@ function prevMain(w,d,i){for(var x=w-1;x>=1;x--){var v=val(x+"|"+d+"|main|"+i);i
 function mb(n){return (n/1048576).toFixed(n<10485760?1:0)+" MB";}
 
 function unit(){return profile.unit==="kg"?"kg":"lb";}
-function barFor(v,sg){var n=parseFloat(v);var U=unit();
- if(n>0)return Plates.barSVG(Plates.toKg(n,U),U==="lb"?Plates.fmt(n)+" lb":"");
- if(sg)return Plates.barSVG(Plates.toKg(sg.lo,U),U==="lb"?Plates.fmt(sg.lo)+" lb":"");return "";}
+var LIFTS=[["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]];
+/* Meet attempts in kg: the lifter's own, or ~90/95/100% of their max. */
+function meetAttempts(k){var mt=(profile.meet||{})[k];if(mt&&mt.length===3)return mt.slice();
+ var m=(profile.maxes||{})[k];return m?Plates.attempts(Plates.toKg(m,unit())):null;}
+function renderMeet(){var h='',tot=0,ok=true;
+ h+='<section class="card"><div class="head"><div><h2>Meet day</h2><p class="sub">Attempts in kg, the way the meet runs them. They start at about 90%, 95% and 100% of your maxes. Change any attempt to match your coach\'s plan.</p></div></div>';
+ LIFTS.forEach(function(x){var a=meetAttempts(x[0]);
+  h+='<div class="ex"><div class="nm"><span>'+x[1]+'</span><small>'+(a?"":"add your max first")+'</small></div>';
+  if(!a){ok=false;h+='</div>';return;}
+  tot+=a[2];
+  var pick=ui.att[x[0]]||0;
+  h+='<div class="sets">';a.forEach(function(v,i){h+='<div class="set"><label for="at-'+x[0]+i+'">'+["Opener","Second","Third"][i]+'</label><input class="w" id="at-'+x[0]+i+'" data-att="'+x[0]+'" data-i="'+i+'" inputmode="decimal" value="'+Plates.fmt(v)+'"></div>';});
+  h+='</div><div class="vrow" role="group" aria-label="Show bar for" style="margin-top:8px">';
+  a.forEach(function(v,i){h+='<button class="mini'+(i===pick?' primary':'')+'" data-show="'+x[0]+'" data-i="'+i+'">'+["Opener","Second","Third"][i]+'</button>';});
+  h+='</div><div id="mbar-'+x[0]+'">'+Plates.barSVG(a[pick])+'</div></div>';});
+ var d=ok&&profile.bw?Plates.dots(tot,Plates.toKg(profile.bw,unit()),profile.sex):null;
+ h+='<div class="kv" style="margin-top:12px"><div><b>'+(ok?Plates.fmt(tot)+" kg":"–")+'</b><span>total if every third is good</span></div><div><b>'+(d?Plates.fmt(Math.round(d*10)/10):"–")+'</b><span>suggested DOTS</span></div></div>';
+ if(ok&&!profile.bw)h+='<p class="sub" style="margin-top:8px">Add your bodyweight under My maxes to see your DOTS score.</p>';
+ h+='<div class="actions" style="margin-top:12px"><button class="btn primary" id="meet-save">Save attempts</button></div></section>';
+ return h;}
 function maxesCard(){var m=profile.maxes||{},U=unit(),has=m.squat||m.bench||m.deadlift;
  var sum=has?"S "+(m.squat||"–")+" · B "+(m.bench||"–")+" · D "+(m.deadlift||"–")+" "+U:"Add your maxes to get suggested weights";
  var h='<section class="card"><details'+(has?'':' open')+'><summary>My maxes: '+esc(sum)+'</summary>';
  h+='<p class="sub" style="margin:6px 0 10px">Your best single for each lift. The tracker multiplies these by your coach\'s percentages and rounds to weights you can load. Bands are added on top.</p><div class="vrow">';
  [["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]].forEach(function(x){h+='<label class="sub" for="mx-'+x[0]+'" style="flex:1 1 90px">'+x[1]+'<input class="w" id="mx-'+x[0]+'" inputmode="decimal" value="'+esc(m[x[0]]||"")+'" style="margin-top:4px"></label>';});
+ h+='</div><div class="vrow" style="margin-top:8px"><label class="sub" for="mx-bw" style="flex:1 1 90px">Bodyweight<input class="w" id="mx-bw" inputmode="decimal" value="'+esc(profile.bw||"")+'" style="margin-top:4px"></label>';
+ h+='<label class="sub" for="mx-sex" style="flex:1 1 120px">DOTS formula<select id="mx-sex" style="margin-top:4px;height:44px;width:100%;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:600 16px var(--body)"><option value="F"'+(profile.sex!=="M"?" selected":"")+'>Women</option><option value="M"'+(profile.sex==="M"?" selected":"")+'>Men</option></select></label>';
  h+='<label class="sub" for="mx-unit" style="flex:0 0 80px">Unit<select id="mx-unit" style="margin-top:4px;height:44px;width:100%;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:600 16px var(--body)"><option value="lb"'+(U==="lb"?" selected":"")+'>lb</option><option value="kg"'+(U==="kg"?" selected":"")+'>kg</option></select></label></div>';
  h+='<div class="actions" style="margin-top:10px"><button class="btn" id="mx-save">Save maxes</button></div></details></section>';return h;}
 function render(){
@@ -63,7 +82,9 @@ function render(){
  for(var w=1;w<=WEEKS;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of '+DAYS.length+' days done">'+w+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
- h+='</div><div class="days" role="group" aria-label="Day">';
+ h+='</div><button class="wk meetbtn" data-w="meet" aria-pressed="'+(cur.w==="meet")+'">🏆 Meet day</button>';
+ if(cur.w==="meet"){h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
+ h+='<div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
   h+='<button class="day" data-d="'+d.k+'" aria-pressed="'+(d.k===cur.d)+'">'+d.n.replace(" ","<br>")+'<span class="chk">'+(dn?"✓ done":"&nbsp;")+'</span></button>';});
  h+='</div>';
@@ -80,8 +101,7 @@ function render(){
   h+='<div class="lift"><div><div class="nm">'+esc(l.lift)+'</div><div class="meta">'+esc(meta)+'</div></div><div class="rx">'+esc(l.reps||"–")+'</div>';
   if(l.reps||l.pct){var sg=Plates.suggest(l,profile),U=unit();
    if(sg)h+='<div class="sugg"><span>Suggested <b>'+esc(Plates.fmt(sg.lo)+(sg.hi?"–"+Plates.fmt(sg.hi):"")+(sg.plus?"+":"")+" "+U)+'</b>'+(sg.bands?' + '+esc(sg.bands):'')+'</span><button class="mini" data-use="'+i+'" data-v="'+sg.lo+'">Use</button></div>';
-   h+='<div class="log"><label for="'+id+'">Weight used</label><input class="w" id="'+id+'" data-k="'+k+'" data-bar="'+i+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevMain(cur.w,cur.d,i))+'"><span class="unit">'+U+'</span></div>';
-   h+='<div class="barwrap" id="bar-'+i+'">'+barFor(val(k),sg)+'</div>';
+   h+='<div class="log"><label for="'+id+'">Weight used</label><input class="w" id="'+id+'" data-k="'+k+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevMain(cur.w,cur.d,i))+'"><span class="unit">'+U+'</span></div>';
    h+=videoBlock(k,i,l.lift);}
   h+='</div>';});h+='</div>';}
  h+='</section>';
@@ -137,14 +157,18 @@ function save(nextVideos){var mm=merged(),videos=nextVideos||state.videos;
  return SDP.api("/api/me",{method:"PUT",body:JSON.stringify({logs:mm.logs,done:mm.done,videos:videos,mode:cur.mode,profile:profile})})
  .then(function(){state.logs=mm.logs;state.done=mm.done;state.videos=videos;draft={logs:{},done:{}};saveDraft();ui.saving=false;render();})
  .catch(function(e){ui.saving=false;ui.saveErr=e.status===401?"Signed out. Reload to sign in.":"Couldn't save. Try again.";render();});}
-function setHash(){var h="w"+cur.w+"-"+cur.d.toLowerCase()+(cur.mode==="coach"?"-coach":"");try{history.replaceState(null,"","#"+h);}catch(e){}}
+function setHash(){if(cur.w==="meet"){try{history.replaceState(null,"","#meet");}catch(e){}return;}var h="w"+cur.w+"-"+cur.d.toLowerCase()+(cur.mode==="coach"?"-coach":"");try{history.replaceState(null,"","#"+h);}catch(e){}}
 
 root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(!t)return;
  if(t.dataset.vact==="remove"){var k=t.closest(".vid").dataset.vk;var nv=Object.assign({},state.videos);delete nv[k];save(nv);return;}
  if(t.dataset.use!=null){var inp=document.getElementById("m"+t.dataset.use);inp.value=t.dataset.v;inp.dispatchEvent(new Event("input",{bubbles:true}));return;}
  if(t.id==="mx-save"){var mx={};["squat","bench","deadlift"].forEach(function(k3){var n=parseFloat(document.getElementById("mx-"+k3).value);if(n>0)mx[k3]=n;});
-  profile={unit:document.getElementById("mx-unit").value==="kg"?"kg":"lb",maxes:mx};save();return;}
- if(t.dataset.w){cur.w=+t.dataset.w;setHash();render();window.scrollTo(0,0);}
+  var bw=parseFloat(document.getElementById("mx-bw").value);
+  profile={unit:document.getElementById("mx-unit").value==="kg"?"kg":"lb",maxes:mx,bw:bw>0?bw:undefined,sex:document.getElementById("mx-sex").value,meet:profile.meet||{}};save();return;}
+ if(t.dataset.show){ui.att[t.dataset.show]=+t.dataset.i;render();return;}
+ if(t.id==="meet-save"){var meet={};LIFTS.forEach(function(x){var a=[0,1,2].map(function(i){var el=document.getElementById("at-"+x[0]+i);return el?parseFloat(el.value):NaN;});if(a.every(function(n){return n>0;}))meet[x[0]]=a;});
+  profile=Object.assign({},profile,{meet:meet});save();return;}
+ if(t.dataset.w){cur.w=t.dataset.w==="meet"?"meet":+t.dataset.w;setHash();render();window.scrollTo(0,0);}
  else if(t.dataset.d){cur.d=t.dataset.d;setHash();render();window.scrollTo(0,0);}
  else if(t.id==="toggle-done"){var k2=cur.w+"|"+cur.d;draft.done[k2]=!isDone(k2);if(!!draft.done[k2]===!!state.done[k2])delete draft.done[k2];saveDraft();render();}
  else if(t.id==="save"){save();}
@@ -153,12 +177,15 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
 root.addEventListener("change",function(ev){var ft=ev.target;
  if(ft.type==="file"&&ft.dataset.vk){handleFile(ft.dataset.vk,ft.files&&ft.files[0]);return;}
  if(ft.id==="mode"){cur.mode=ft.value;setHash();render();}});
-root.addEventListener("input",function(ev){var t=ev.target;if(!t.dataset||!t.dataset.k)return;var k=t.dataset.k,v=t.value.trim();
- if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();
- if(t.dataset.bar!=null){var l=(dayOf(cur.w,cur.d).main||[])[+t.dataset.bar],el=document.getElementById("bar-"+t.dataset.bar);if(el&&l)el.innerHTML=barFor(v,Plates.suggest(l,profile));}});
+root.addEventListener("input",function(ev){var t=ev.target;
+ if(t.dataset&&t.dataset.att){var n=parseFloat(t.value),el=document.getElementById("mbar-"+t.dataset.att);
+  if(el&&n>0&&(ui.att[t.dataset.att]||0)===+t.dataset.i)el.innerHTML=Plates.barSVG(n);
+  var sb=document.getElementById("meet-save");if(sb)sb.textContent="Save attempts";return;}
+ if(!t.dataset||!t.dataset.k)return;var k=t.dataset.k,v=t.value.trim();
+ if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
 window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
 
-function pickStart(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
+function pickStart(){if(location.hash==="#meet"){cur.w="meet";return;}var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
  if(m&&m[3])cur.mode=m[3].slice(1);
  if(m&&+m[1]>=1&&+m[1]<=WEEKS&&DAYS.some(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})){cur.w=+m[1];cur.d=DAYS.filter(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})[0].k;return;}
  for(var w=1;w<=WEEKS;w++){if(!DAYS.every(function(d){return isDone(w+"|"+d.k);})){cur.w=w;break;}}

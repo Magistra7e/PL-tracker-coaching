@@ -44,10 +44,19 @@ function renderList(){
 
 function maxTiles(){var pr=sel.profile||{},m=pr.maxes||{},U=pr.unit==="kg"?"kg":"lb",h="";
  [["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]].forEach(function(x){h+='<div><b style="font-size:18px">'+(m[x[0]]?esc(Plates.label(m[x[0]],U)):"–")+'</b><span>'+x[1]+' max</span></div>';});return h;}
+function meetCard(){var pr=sel.profile||{},U=pr.unit==="kg"?"kg":"lb",tot=0,ok=true,rows="";
+ [["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]].forEach(function(x){var a=(pr.meet||{})[x[0]],m=(pr.maxes||{})[x[0]];
+  if(!(a&&a.length===3))a=m?Plates.attempts(Plates.toKg(m,U)):null;
+  if(!a){ok=false;rows+='<tr><td>'+x[1]+'</td><td colspan="3"><span class="sub">No max yet</span></td></tr>';return;}
+  tot+=a[2];rows+='<tr><td>'+x[1]+'</td>'+a.map(function(v){return '<td>'+Plates.fmt(v)+'</td>';}).join("")+'</tr>';});
+ var d=ok&&pr.bw?Plates.dots(tot,Plates.toKg(pr.bw,U),pr.sex):null;
+ return '<section class="card"><h2>Meet attempts</h2><p class="sub">In kg. '+((pr.meet&&Object.keys(pr.meet).length)?"Set by the lifter.":"Suggested from their maxes (about 90/95/100%).")+'</p><div class="scroll"><table class="grid"><thead><tr><th>Lift</th><th>Opener</th><th>Second</th><th>Third</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+  '<div class="kv" style="margin-top:10px"><div><b>'+(ok?Plates.fmt(tot)+" kg":"–")+'</b><span>total if every third is good</span></div><div><b>'+(d?Plates.fmt(Math.round(d*10)/10):"–")+'</b><span>DOTS'+(pr.bw?" at "+Plates.fmt(pr.bw)+" "+U:" (no bodyweight yet)")+'</span></div></div></section>';}
 function renderLifter(){var P=sel.program,L=sel.log||{},logs=L.logs||{},done=L.done||{},videos=L.videos||{},w=view.w,DAYS=P.days;
  var h=header()+'<div class="wrap"><main><button class="back" id="back">← All lifters</button>';
  var count=Object.keys(done).filter(function(k){return done[k];}).length;
  h+='<section class="card"><h2>'+esc(sel.name||sel.email)+'</h2><p class="sub">'+esc(sel.email)+' · last saved '+esc(ago(sel.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of '+(P.weeks.length*DAYS.length)+'</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b style="font-size:18px">'+esc(P.name)+'</b><span>program</span></div>'+maxTiles()+'</div></section>';
+ h+=meetCard();
  h+='<div class="weeks" role="group" aria-label="Week">';
  for(var i=1;i<=P.weeks.length;i++){var nd=DAYS.filter(function(dd){return done[i+"|"+dd.k];}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)" aria-label="Week '+i+', '+nd+' of '+DAYS.length+' days done">'+i+'<span class="dots" aria-hidden="true">';
