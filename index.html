@@ -100,7 +100,7 @@ function render(){
   var meta=[l.bar,l.pct,l.bands].filter(Boolean).join(" · ");
   h+='<div class="lift"><div><div class="nm">'+esc(l.lift)+'</div><div class="meta">'+esc(meta)+'</div></div><div class="rx">'+esc(l.reps||"–")+'</div>';
   if(l.reps||l.pct){var sg=Plates.suggest(l,profile),U=unit();
-   if(sg)h+='<div class="sugg"><span>Suggested <b>'+esc(Plates.fmt(sg.lo)+(sg.hi?"–"+Plates.fmt(sg.hi):"")+(sg.plus?"+":"")+" "+U)+'</b>'+(sg.bands?' + '+esc(sg.bands):'')+'</span><button class="mini" data-use="'+i+'" data-v="'+sg.lo+'">Use</button></div>';
+   if(sg)h+='<div class="sugg"><span>Suggested <b>'+esc(Plates.fmt(sg.lo)+(sg.hi?"–"+Plates.fmt(sg.hi):"")+(sg.plus?"+":"")+" "+U)+'</b>'+(sg.bands?' + '+esc(sg.bands):'')+'</span></div>';
    h+='<div class="log"><label for="'+id+'">Weight used</label><input class="w" id="'+id+'" data-k="'+k+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevMain(cur.w,cur.d,i))+'"><span class="unit">'+U+'</span></div>';
    h+=videoBlock(k,i,l.lift);}
   h+='</div>';});h+='</div>';}
@@ -161,7 +161,6 @@ function setHash(){if(cur.w==="meet"){try{history.replaceState(null,"","#meet");
 
 root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(!t)return;
  if(t.dataset.vact==="remove"){var k=t.closest(".vid").dataset.vk;var nv=Object.assign({},state.videos);delete nv[k];save(nv);return;}
- if(t.dataset.use!=null){var inp=document.getElementById("m"+t.dataset.use);inp.value=t.dataset.v;inp.dispatchEvent(new Event("input",{bubbles:true}));return;}
  if(t.id==="mx-save"){var mx={};["squat","bench","deadlift"].forEach(function(k3){var n=parseFloat(document.getElementById("mx-"+k3).value);if(n>0)mx[k3]=n;});
   var bw=parseFloat(document.getElementById("mx-bw").value);
   profile={unit:document.getElementById("mx-unit").value==="kg"?"kg":"lb",maxes:mx,bw:bw>0?bw:undefined,sex:document.getElementById("mx-sex").value,meet:profile.meet||{}};save();return;}
