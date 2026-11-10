@@ -13,11 +13,12 @@
 <div id="auth" hidden></div>
 <div id="root"><p class="loading">Loading…</p></div>
 <script src="/auth.js"></script>
+<script src="/plates.js"></script>
 <script>
 (function(){
 "use strict";
 var root=document.getElementById("root");
-var tab="lifters",lifters=[],programs=[],defaultId="",sel=null,view={w:1},urls={},ed=null,edW=1,edDirty=false,msg="";
+var plateCfg=null,tab="lifters",lifters=[],programs=[],defaultId="",sel=null,view={w:1},urls={},ed=null,edW=1,edDirty=false,msg="";
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
 function ago(iso){if(!iso)return "Never";var s=(Date.now()-new Date(iso).getTime())/1000;
@@ -41,10 +42,12 @@ function renderList(){
   h+='</tbody></table></div>';}
  h+='</section></main></div>';root.innerHTML=h;}
 
+function maxTiles(){var pr=sel.profile||{},m=pr.maxes||{},U=pr.unit==="kg"?"kg":"lb",h="";
+ [["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]].forEach(function(x){h+='<div><b style="font-size:18px">'+(m[x[0]]?esc(Plates.label(m[x[0]],U)):"–")+'</b><span>'+x[1]+' max</span></div>';});return h;}
 function renderLifter(){var P=sel.program,L=sel.log||{},logs=L.logs||{},done=L.done||{},videos=L.videos||{},w=view.w,DAYS=P.days;
  var h=header()+'<div class="wrap"><main><button class="back" id="back">← All lifters</button>';
  var count=Object.keys(done).filter(function(k){return done[k];}).length;
- h+='<section class="card"><h2>'+esc(sel.name||sel.email)+'</h2><p class="sub">'+esc(sel.email)+' · last saved '+esc(ago(sel.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of '+(P.weeks.length*DAYS.length)+'</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b style="font-size:18px">'+esc(P.name)+'</b><span>program</span></div></div></section>';
+ h+='<section class="card"><h2>'+esc(sel.name||sel.email)+'</h2><p class="sub">'+esc(sel.email)+' · last saved '+esc(ago(sel.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of '+(P.weeks.length*DAYS.length)+'</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b style="font-size:18px">'+esc(P.name)+'</b><span>program</span></div>'+maxTiles()+'</div></section>';
  h+='<div class="weeks" role="group" aria-label="Week">';
  for(var i=1;i<=P.weeks.length;i++){var nd=DAYS.filter(function(dd){return done[i+"|"+dd.k];}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)" aria-label="Week '+i+', '+nd+' of '+DAYS.length+' days done">'+i+'<span class="dots" aria-hidden="true">';
@@ -56,7 +59,7 @@ function renderLifter(){var P=sel.program,L=sel.log||{},logs=L.logs||{},done=L.d
   h+='<section class="card"><div class="head"><div><h2>'+esc(day.n)+'</h2><p class="sub">Week '+w+'</p></div>'+(done[w+"|"+day.k]?'<span class="pill ok">Done</span>':'<span class="pill">Not done</span>')+'</div>';
   if(dd.main.length){h+='<div class="scroll"><table class="grid"><thead><tr><th>Main lift</th><th>Prescribed</th><th>Weight used</th></tr></thead><tbody>';
    dd.main.forEach(function(l,i){var k=w+"|"+day.k+"|main|"+i,v=videos[k];
-    h+='<tr><td><b>'+esc(l.lift)+'</b><br><span class="sub">'+esc([l.bar,l.bands].filter(Boolean).join(" · "))+'</span></td><td>'+esc([l.pct,l.reps].filter(Boolean).join(" · "))+'</td><td>'+(logs[k]?esc(logs[k])+" lb":'<span class="sub">–</span>')+'</td></tr>';
+    h+='<tr><td><b>'+esc(l.lift)+'</b><br><span class="sub">'+esc([l.bar,l.bands].filter(Boolean).join(" · "))+'</span></td><td>'+esc([l.pct,l.reps].filter(Boolean).join(" · "))+'</td><td>'+(logs[k]&&parseFloat(logs[k])>0?esc(Plates.label(parseFloat(logs[k]),(sel.profile||{}).unit==="kg"?"kg":"lb")):(logs[k]?esc(logs[k]):'<span class="sub">–</span>'))+'</td></tr>';
     if(v&&v.path)h+='<tr><td colspan="3"><video controls playsinline preload="metadata" data-path="'+esc(v.path)+'" style="width:100%;max-height:360px;border-radius:10px;background:#000"></video><span class="sub">Uploaded '+esc(v.at||"")+'</span></td></tr>';});
    h+='</tbody></table></div>';}
   if(dd.acc.length){h+='<div class="scroll" style="margin-top:10px"><table class="grid"><thead><tr><th>Accessory</th><th>Sets (target reps: weight)</th></tr></thead><tbody>';
@@ -73,7 +76,7 @@ function renderLifter(){var P=sel.program,L=sel.log||{},logs=L.logs||{},done=L.d
   if(urls[p]){el.src=urls[p];return;}SDP.api("/api/video-url?p="+encodeURIComponent(p)).then(function(r){urls[p]=r.url;el.src=r.url;}).catch(function(){});});
 }
 function openLifter(id){root.innerHTML='<p class="loading">Loading lifter…</p>';
- SDP.api("/api/lifter?id="+encodeURIComponent(id)).then(function(r){sel=r;
+ SDP.api("/api/lifter?id="+encodeURIComponent(id)).then(function(r){sel=r;Plates.configure(r.plates);
   var wk=0,L=r.log||{};Object.keys(L.logs||{}).concat(Object.keys(L.done||{})).forEach(function(k){var n=parseInt(k,10);if(n>wk)wk=n;});view.w=Math.min(wk||1,r.program.weeks.length);
   renderLifter();window.scrollTo(0,0);})
  .catch(function(e){root.innerHTML='<p class="loading err">'+esc(e.message)+'</p>';});}
@@ -88,12 +91,22 @@ function renderPrograms(){
   h+='<div class="ex"><div class="nm"><span>'+esc(p.name)+(p.id===defaultId?' <span class="pill ok">Default</span>':'')+'</span><small>edited '+esc(ago(p.updatedAt))+'</small></div>'+
    '<div class="vrow" style="margin-top:8px"><button class="mini primary" data-edit="'+esc(p.id)+'">Edit</button><button class="mini" data-copy="'+esc(p.id)+'">Duplicate</button>'+
    (p.id!==defaultId?'<button class="mini" data-default="'+esc(p.id)+'">Make default</button><button class="mini" data-del="'+esc(p.id)+'">Delete</button>':'')+'</div></div>';});
- h+='</section>';
+ h+='</section>'+plateCard();
  h+='<section class="card"><h2>New program</h2><p class="sub">Starts blank with 4 training days. To start from an existing program, use Duplicate instead.</p>'+
   '<div class="vrow" style="margin-top:10px"><label class="sr" for="np-name">Program name</label><input class="vl" id="np-name" placeholder="Program name"><label class="sr" for="np-weeks">Weeks</label><input class="vl" id="np-weeks" type="number" min="1" max="52" value="12" style="flex:0 0 80px" aria-label="Number of weeks"><button class="mini primary" id="np-create">Create</button></div></section>';
  h+='</main></div>';root.innerHTML=h;}
+function plateCard(){var c=plateCfg||{barKg:20,collarKg:2.5,plates:Plates.ALL};
+ var h='<section class="card"><h2>Bar &amp; plates</h2><p class="sub">Used for every lifter\'s suggested weights and the loaded-bar picture. Untick plates your gym doesn\'t have.</p>';
+ h+='<div class="vrow" style="margin-top:10px"><label class="sub" for="pl-bar" style="flex:1 1 120px">Bar (kg)<input class="w" id="pl-bar" inputmode="decimal" value="'+esc(c.barKg)+'" style="margin-top:4px"></label>'+
+  '<label class="sub" for="pl-collar" style="flex:1 1 120px">Each collar (kg)<input class="w" id="pl-collar" inputmode="decimal" value="'+esc(c.collarKg)+'" style="margin-top:4px"></label></div>';
+ h+='<fieldset style="border:0;padding:0;margin:12px 0 0"><legend class="sub">Plates available (kg)</legend><div class="vrow" style="margin-top:6px">';
+ Plates.ALL.forEach(function(kg){var on=(c.plates||[]).map(Number).indexOf(kg)>=0;
+  h+='<label class="mini" style="gap:6px"><input type="checkbox" class="pl-kg" value="'+kg+'"'+(on?" checked":"")+'>'+kg+'</label>';});
+ h+='</div></fieldset><div class="actions" style="margin-top:10px"><button class="btn" id="pl-save">Save bar &amp; plates</button></div>';
+ Plates.configure(c);h+='<p class="sub" style="margin-top:10px">Example: 200 kg</p>'+Plates.barSVG(200);
+ return h+'</section>';}
 function loadPrograms(){root.innerHTML='<p class="loading">Loading programs…</p>';
- return SDP.api("/api/programs").then(function(r){programs=r.programs;defaultId=r.defaultId;renderPrograms();});}
+ return SDP.api("/api/programs").then(function(r){programs=r.programs;defaultId=r.defaultId;plateCfg=r.plates;renderPrograms();});}
 
 /* ---------- editor ---------- */
 function inp(path,value,label,ph,w){return '<label class="sr" for="f-'+path+'">'+esc(label)+'</label><input class="vl" id="f-'+path+'" data-f="'+path+'" value="'+esc(value)+'" placeholder="'+esc(ph||label)+'"'+(w?' style="flex:'+w+'"':'')+'>';}
@@ -142,6 +155,8 @@ root.addEventListener("click",function(ev){var b=ev.target.closest("button");if(
  if(d["default"]){act({action:"default",id:d["default"]},function(){msg="Default program updated.";loadPrograms();});return;}
  if(d.del){if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="Tap again to delete";return;}
   act({action:"delete",id:d.del},function(){msg="Program deleted. Lifters on it moved to the default.";loadPrograms();});return;}
+ if(b.id==="pl-save"){var pl=Array.prototype.filter.call(root.querySelectorAll(".pl-kg"),function(x){return x.checked;}).map(function(x){return +x.value;});
+  act({action:"plates",plates:{barKg:document.getElementById("pl-bar").value,collarKg:document.getElementById("pl-collar").value,plates:pl}},function(r){plateCfg=r.plates;msg="Bar and plates saved for all lifters.";renderPrograms();});return;}
  if(b.id==="np-create"){var nm=document.getElementById("np-name").value.trim(),wks=document.getElementById("np-weeks").value;
   act({action:"create",name:nm||"New program",weeks:wks},function(r){openEditor(r.program.id);});return;}
  if(b.id==="ed-back"){if(leaveEditor()){msg="";loadPrograms();}return;}

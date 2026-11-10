@@ -1,4 +1,4 @@
-import { json, authUser } from "./_lib.js";
+import { json, authUser, getPlates } from "./_lib.js";
 import { getProgram, programIdFor } from "./_programs.js";
 import { PROGRAM } from "./_program.js";
 
@@ -9,5 +9,5 @@ export async function GET(request) {
   const pid = await programIdFor(user.id);
   const program = await getProgram(pid);
   if (!program) return json({ error: "Program not found." }, 404);
-  return json({ program, bodi: pid === "showdown" ? { phases: PROGRAM.phases, orig: PROGRAM.orig } : null });
+  return json({ program, plates: await getPlates(), bodi: pid === "showdown" ? { phases: PROGRAM.phases, orig: PROGRAM.orig } : null });
 }

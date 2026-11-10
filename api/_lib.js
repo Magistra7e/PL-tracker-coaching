@@ -176,3 +176,18 @@ export function summarize(id, d, pid) {
     updatedAt: d.updatedAt || null, daysDone, week, videos: Object.keys(videos).length, programId: pid,
   };
 }
+
+/* Coach's bar and plate setup used for suggestions and the loaded-bar drawing. */
+const PLATE_SIZES = [25, 20, 15, 10, 5, 2.5, 1.25, 0.5, 0.25];
+export async function getPlates() {
+  return (await readJSON("settings/plates.json")) || { barKg: 20, collarKg: 2.5, plates: PLATE_SIZES };
+}
+export async function savePlates(p) {
+  const barKg = Math.min(50, Math.max(5, parseFloat(p.barKg) || 20));
+  const c = parseFloat(p.collarKg);
+  const plates = (Array.isArray(p.plates) ? p.plates : []).map(Number).filter((n) => PLATE_SIZES.includes(n));
+  if (!plates.length) throw new Error("Pick at least one plate size.");
+  const out = { barKg, collarKg: isNaN(c) ? 2.5 : Math.min(5, Math.max(0, c)), plates };
+  await writeJSON("settings/plates.json", out);
+  return out;
+}

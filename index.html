@@ -13,6 +13,7 @@
 <div id="auth" hidden></div>
 <div id="root"><p class="loading">Loading…</p></div>
 <script src="/auth.js"></script>
+<script src="/plates.js"></script>
 <script>
 (function(){
 "use strict";
@@ -22,7 +23,7 @@ function dayOf(w,k){var wk=P.weeks[w-1];return (wk&&wk.days&&wk.days[k])||{main:
 function phaseFor(w){return w<=5?"build":w===6?"circ":w<=9?"sculpt":"noexc";}
 var root=document.getElementById("root");
 var me={email:"",isCoach:false};
-var state={logs:{},done:{},videos:{}};
+var state={logs:{},done:{},videos:{}},profile={unit:"lb",maxes:{}};
 var draft={logs:{},done:{}},DKEY="sdp-draft-v3";
 var cur={w:1,d:"LL",mode:"bodi"};
 var ui={busy:{},msg:{},urls:{},saving:false,saveErr:""};
@@ -44,6 +45,17 @@ function prevVal(w,d,name,i){var nk=exKey(name);for(var x=w-1;x>=1;x--){var v=va
 function prevMain(w,d,i){for(var x=w-1;x>=1;x--){var v=val(x+"|"+d+"|main|"+i);if(v)return v;}return "";}
 function mb(n){return (n/1048576).toFixed(n<10485760?1:0)+" MB";}
 
+function unit(){return profile.unit==="kg"?"kg":"lb";}
+function barFor(v,sg){var n=parseFloat(v);var U=unit();
+ if(n>0)return Plates.barSVG(Plates.toKg(n,U),U==="lb"?Plates.fmt(n)+" lb":"");
+ if(sg)return Plates.barSVG(Plates.toKg(sg.lo,U),U==="lb"?Plates.fmt(sg.lo)+" lb":"");return "";}
+function maxesCard(){var m=profile.maxes||{},U=unit(),has=m.squat||m.bench||m.deadlift;
+ var sum=has?"S "+(m.squat||"–")+" · B "+(m.bench||"–")+" · D "+(m.deadlift||"–")+" "+U:"Add your maxes to get suggested weights";
+ var h='<section class="card"><details'+(has?'':' open')+'><summary>My maxes: '+esc(sum)+'</summary>';
+ h+='<p class="sub" style="margin:6px 0 10px">Your best single for each lift. The tracker multiplies these by your coach\'s percentages and rounds to weights you can load. Bands are added on top.</p><div class="vrow">';
+ [["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]].forEach(function(x){h+='<label class="sub" for="mx-'+x[0]+'" style="flex:1 1 90px">'+x[1]+'<input class="w" id="mx-'+x[0]+'" inputmode="decimal" value="'+esc(m[x[0]]||"")+'" style="margin-top:4px"></label>';});
+ h+='<label class="sub" for="mx-unit" style="flex:0 0 80px">Unit<select id="mx-unit" style="margin-top:4px;height:44px;width:100%;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);font:600 16px var(--body)"><option value="lb"'+(U==="lb"?" selected":"")+'>lb</option><option value="kg"'+(U==="kg"?" selected":"")+'>kg</option></select></label></div>';
+ h+='<div class="actions" style="margin-top:10px"><button class="btn" id="mx-save">Save maxes</button></div></details></section>';return h;}
 function render(){
  var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>'+esc(P.name)+'</h1><span class="status" id="status"></span></div>';
  h+='<div class="userbar"><span>'+esc(me.email)+'</span><span>'+(me.isCoach?'<a href="/coach">Coach dashboard</a> · ':'')+'<button id="signout">Sign out</button></span></div>';
@@ -57,6 +69,7 @@ function render(){
  h+='</div>';
  if(B)h+='<div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
  h+='</div></header><div class="wrap"><main>';
+ h+=maxesCard();
  var wn=(P.weeks[cur.w-1]||{}).notes;
  if(wn)h+='<div class="note"><b>Coach · Week '+cur.w+'</b><br>'+esc(wn)+'</div>';
  var lifts=dayOf(cur.w,cur.d).main||[];
@@ -65,7 +78,10 @@ function render(){
  else{h+='<div class="lifts">';lifts.forEach(function(l,i){var k=cur.w+"|"+cur.d+"|main|"+i,id="m"+i;
   var meta=[l.bar,l.pct,l.bands].filter(Boolean).join(" · ");
   h+='<div class="lift"><div><div class="nm">'+esc(l.lift)+'</div><div class="meta">'+esc(meta)+'</div></div><div class="rx">'+esc(l.reps||"–")+'</div>';
-  if(l.reps||l.pct){h+='<div class="log"><label for="'+id+'">Weight used</label><input class="w" id="'+id+'" data-k="'+k+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevMain(cur.w,cur.d,i))+'"><span class="unit">lb</span></div>';
+  if(l.reps||l.pct){var sg=Plates.suggest(l,profile),U=unit();
+   if(sg)h+='<div class="sugg"><span>Suggested <b>'+esc(Plates.fmt(sg.lo)+(sg.hi?"–"+Plates.fmt(sg.hi):"")+(sg.plus?"+":"")+" "+U)+'</b>'+(sg.bands?' + '+esc(sg.bands):'')+'</span><button class="mini" data-use="'+i+'" data-v="'+sg.lo+'">Use</button></div>';
+   h+='<div class="log"><label for="'+id+'">Weight used</label><input class="w" id="'+id+'" data-k="'+k+'" data-bar="'+i+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevMain(cur.w,cur.d,i))+'"><span class="unit">'+U+'</span></div>';
+   h+='<div class="barwrap" id="bar-'+i+'">'+barFor(val(k),sg)+'</div>';
    h+=videoBlock(k,i,l.lift);}
   h+='</div>';});h+='</div>';}
  h+='</section>';
@@ -74,7 +90,7 @@ function render(){
  if(!exs.length)h+='<p class="empty">No accessories listed for this day.</p>';
  exs.forEach(function(e,ei){var nm=e[0];h+='<div class="ex"><div class="nm"><span>'+esc(nm)+'</span><small>'+e[1].length+' sets</small></div><div class="sets">';
   e[1].forEach(function(r,si){var k=cur.w+"|"+cur.d+"|"+exKey(nm)+"|"+si,id="x"+ei+"s"+si;
-   h+='<div class="set"><label for="'+id+'">'+esc(r)+'</label><input class="w" id="'+id+'" data-k="'+k+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevVal(cur.w,cur.d,nm,si))+'" aria-label="'+esc(nm)+' set '+(si+1)+', '+esc(r)+' reps, weight in pounds"></div>';});
+   h+='<div class="set"><label for="'+id+'">'+esc(r)+'</label><input class="w" id="'+id+'" data-k="'+k+'" inputmode="decimal" value="'+esc(val(k))+'" placeholder="'+esc(prevVal(cur.w,cur.d,nm,si))+'" aria-label="'+esc(nm)+' set '+(si+1)+', '+esc(r)+' reps, weight in '+(unit()==="kg"?"kilograms":"pounds")+'"></div>';});
   h+='</div></div>';});
  if(!coach&&B.orig[cur.d])h+='<details><summary>What these replace</summary><p>'+esc(B.orig[cur.d])+'</p></details>';
  h+='</section>';
@@ -118,13 +134,16 @@ function merged(){var logs=Object.assign({},state.logs),done=Object.assign({},st
  Object.keys(draft.done).forEach(function(k){if(draft.done[k])done[k]=true;else delete done[k];});return {logs:logs,done:done};}
 function save(nextVideos){var mm=merged(),videos=nextVideos||state.videos;
  ui.saving=true;ui.saveErr="";renderStatus();
- return SDP.api("/api/me",{method:"PUT",body:JSON.stringify({logs:mm.logs,done:mm.done,videos:videos,mode:cur.mode})})
+ return SDP.api("/api/me",{method:"PUT",body:JSON.stringify({logs:mm.logs,done:mm.done,videos:videos,mode:cur.mode,profile:profile})})
  .then(function(){state.logs=mm.logs;state.done=mm.done;state.videos=videos;draft={logs:{},done:{}};saveDraft();ui.saving=false;render();})
  .catch(function(e){ui.saving=false;ui.saveErr=e.status===401?"Signed out. Reload to sign in.":"Couldn't save. Try again.";render();});}
 function setHash(){var h="w"+cur.w+"-"+cur.d.toLowerCase()+(cur.mode==="coach"?"-coach":"");try{history.replaceState(null,"","#"+h);}catch(e){}}
 
 root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(!t)return;
  if(t.dataset.vact==="remove"){var k=t.closest(".vid").dataset.vk;var nv=Object.assign({},state.videos);delete nv[k];save(nv);return;}
+ if(t.dataset.use!=null){var inp=document.getElementById("m"+t.dataset.use);inp.value=t.dataset.v;inp.dispatchEvent(new Event("input",{bubbles:true}));return;}
+ if(t.id==="mx-save"){var mx={};["squat","bench","deadlift"].forEach(function(k3){var n=parseFloat(document.getElementById("mx-"+k3).value);if(n>0)mx[k3]=n;});
+  profile={unit:document.getElementById("mx-unit").value==="kg"?"kg":"lb",maxes:mx};save();return;}
  if(t.dataset.w){cur.w=+t.dataset.w;setHash();render();window.scrollTo(0,0);}
  else if(t.dataset.d){cur.d=t.dataset.d;setHash();render();window.scrollTo(0,0);}
  else if(t.id==="toggle-done"){var k2=cur.w+"|"+cur.d;draft.done[k2]=!isDone(k2);if(!!draft.done[k2]===!!state.done[k2])delete draft.done[k2];saveDraft();render();}
@@ -135,7 +154,8 @@ root.addEventListener("change",function(ev){var ft=ev.target;
  if(ft.type==="file"&&ft.dataset.vk){handleFile(ft.dataset.vk,ft.files&&ft.files[0]);return;}
  if(ft.id==="mode"){cur.mode=ft.value;setHash();render();}});
 root.addEventListener("input",function(ev){var t=ev.target;if(!t.dataset||!t.dataset.k)return;var k=t.dataset.k,v=t.value.trim();
- if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
+ if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();
+ if(t.dataset.bar!=null){var l=(dayOf(cur.w,cur.d).main||[])[+t.dataset.bar],el=document.getElementById("bar-"+t.dataset.bar);if(el&&l)el.innerHTML=barFor(v,Plates.suggest(l,profile));}});
 window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
 
 function pickStart(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
@@ -147,7 +167,7 @@ function pickStart(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(l
 SDP.start(document.getElementById("auth")).then(function(){
  root.innerHTML='<p class="loading">Loading your log…</p>';
  return Promise.all([SDP.api("/api/program"),SDP.api("/api/me")]);
-}).then(function(res){P=res[0].program;B=res[0].bodi;DAYS=P.days;WEEKS=P.weeks.length;me=res[1].user;var d=res[1].data||{};
+}).then(function(res){P=res[0].program;B=res[0].bodi;Plates.configure(res[0].plates);DAYS=P.days;WEEKS=P.weeks.length;me=res[1].user;var d=res[1].data||{};profile=res[1].profile&&res[1].profile.unit?res[1].profile:{unit:"lb",maxes:(res[1].profile||{}).maxes||{}};
  document.title=P.name+" Tracker";if(!B)cur.mode="coach";
  state={logs:d.logs||{},done:d.done||{},videos:d.videos||{}};if(d.mode&&B)cur.mode=d.mode;
  loadDraft();pickStart();render();

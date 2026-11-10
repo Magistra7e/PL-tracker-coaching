@@ -1,4 +1,4 @@
-import { json, authUser } from "./_lib.js";
+import { json, authUser, getPlates, savePlates } from "./_lib.js";
 import { getIndex, getProgram, getAssignments, cleanProgram, saveProgram, saveIndex, saveAssignments } from "./_programs.js";
 
 async function coach(request) {
@@ -17,7 +17,7 @@ export async function GET(request) {
     return p ? json({ program: p }) : json({ error: "Program not found." }, 404);
   }
   const [idx, asg] = await Promise.all([getIndex(), getAssignments()]);
-  return json({ ...idx, assignments: asg });
+  return json({ ...idx, assignments: asg, plates: await getPlates() });
 }
 
 /* Save an edited program. Body: {program} */
@@ -73,6 +73,10 @@ export async function POST(request) {
     Object.keys(asg).forEach((k) => { if (asg[k] === b.id) delete asg[k]; });
     await saveAssignments(asg);
     return json({ ok: true });
+  }
+  if (b.action === "plates") {
+    try { return json({ plates: await savePlates(b.plates || {}) }); }
+    catch (e) { return json({ error: e.message }, 400); }
   }
   return json({ error: "Unknown action." }, 400);
 }

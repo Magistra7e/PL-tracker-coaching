@@ -117,3 +117,9 @@ table.grid tr.row:hover td{background:var(--field)}
 #auth:not([hidden])+#root{display:none}
 .vok{font-weight:700;color:var(--ok)}
 .erow{border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}
+.sugg{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.barwrap{grid-column:1/-1}
+figure.bar{margin:4px 0 0}
+figure.bar svg{width:100%;max-width:480px;height:auto;display:block}
+figure.bar figcaption{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+details>summary{list-style-position:inside}
