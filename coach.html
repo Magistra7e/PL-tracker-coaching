@@ -40,9 +40,10 @@ function renderLifter(){var d=sel.data,logs=d.logs||{},done=d.done||{},videos=d.
  var count=Object.keys(done).filter(function(k){return done[k];}).length;
  h+='<section class="card"><h2>'+esc(d.name||d.email)+'</h2><p class="sub">'+esc(d.email)+' · last saved '+esc(ago(d.updatedAt))+'</p><div class="kv" style="margin-top:10px"><div><b>'+count+'</b><span>days done of 48</span></div><div><b>'+Object.keys(videos).length+'</b><span>lift videos</span></div><div><b>'+(d.mode==="coach"?"Coach":"Own")+'</b><span>accessories they use</span></div></div></section>';
  h+='<div class="weeks" role="group" aria-label="Week">';
- for(var i=1;i<=12;i++){h+='<button class="wk" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)">'+i+'<span class="dots">';
+ for(var i=1;i<=12;i++){var nd=DAYS.filter(function(dd){return done[i+"|"+dd.k];}).length;
+  h+='<button class="wk'+(nd===4?' full':'')+'" data-w="'+i+'" aria-pressed="'+(i===w)+'" style="--pc:var(--line)" aria-label="Week '+i+', '+nd+' of 4 days done">'+i+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(dd){h+='<i class="'+(done[i+"|"+dd.k]?"on":"")+'"></i>';});h+='</span></button>';}
- h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(view.mode==="bodi"?" selected":"")+'>Lifter's version</option><option value="coach"'+(view.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
+ h+='</div><div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(view.mode==="bodi"?" selected":"")+'>Lifter\'s version</option><option value="coach"'+(view.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
  DAYS.forEach(function(day){var lifts=P.main[w][day.k]||[];
   h+='<section class="card"><div class="head"><div><h2>'+day.n+'</h2><p class="sub">Week '+w+'</p></div>'+(done[w+"|"+day.k]?'<span class="pill ok">Done</span>':'<span class="pill">Not done</span>')+'</div>';
   if(lifts.length){h+='<div class="scroll"><table class="grid"><thead><tr><th>Main lift</th><th>Prescribed</th><th>Weight used</th></tr></thead><tbody>';

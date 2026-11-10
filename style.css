@@ -20,18 +20,21 @@
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
 .wrap{max-width:720px;margin:0 auto;padding:0 16px 96px}
-header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+header.top{background:var(--bg);border-bottom:1px solid var(--line)}
 .top .wrap{padding-bottom:10px}
 .titlebar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-top:12px}
 h1{font-family:var(--display);font-size:26px;letter-spacing:.02em;margin:0;text-transform:uppercase;text-wrap:balance}
 .status{font-size:13px;color:var(--muted);white-space:nowrap}
 .status.dirty{color:var(--accent);font-weight:600}
-.weeks{display:flex;gap:6px;overflow-x:auto;padding:10px 0 8px;scrollbar-width:none}
+.weeks{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:10px 0 8px}
+@media (min-width:640px){.weeks{grid-template-columns:repeat(12,1fr)}}
 .weeks::-webkit-scrollbar{display:none}
-.wk{flex:0 0 auto;min-width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-family:var(--display);font-size:18px;font-weight:700;cursor:pointer;position:relative;border-bottom:4px solid var(--pc)}
+.wk{min-width:0;height:48px;padding:0 0 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-family:var(--display);font-size:18px;font-weight:700;cursor:pointer;position:relative;border-bottom:4px solid var(--pc)}
 .wk[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);border-bottom-color:var(--pc)}
-.wk .dots{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:2px}
-.wk .dots i{width:4px;height:4px;border-radius:50%;background:var(--line)}
+.wk .dots{position:absolute;left:0;right:0;bottom:6px;display:flex;justify-content:center;gap:3px}
+.wk .dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.wk[aria-pressed="true"] .dots i{background:color-mix(in srgb,var(--bg) 35%,transparent)}
+.wk.full{border-color:var(--ok)}
 .wk .dots i.on{background:var(--ok)}
 .days{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
 .day{border:0;background:transparent;color:var(--muted);font-family:var(--body);font-weight:600;font-size:14px;padding:8px 2px;border-radius:7px;cursor:pointer;line-height:1.15}

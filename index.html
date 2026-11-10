@@ -47,7 +47,8 @@ function render(){
  var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>Showdown Prep</h1><span class="status" id="status"></span></div>';
  h+='<div class="userbar"><span>'+esc(me.email)+'</span><span>'+(me.isCoach?'<a href="/coach">Coach dashboard</a> · ':'')+'<button id="signout">Sign out</button></span></div>';
  h+='<div class="weeks" role="group" aria-label="Week">';
- for(var w=1;w<=12;w++){h+='<button class="wk" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+'">'+w+'<span class="dots">';
+ for(var w=1;w<=12;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
+  h+='<button class="wk'+(nd===4?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of 4 days done">'+w+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
  h+='</div><div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
