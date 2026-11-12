@@ -1,6 +1,8 @@
 /* Programs live in the private Blob store. Showdown is seeded from _program.js the first time. */
 import { readJSON, writeJSON, safeId } from "./_lib.js";
 import { PROGRAM } from "./_program.js";
+/* Coach's 4-week Conditioning and Strength blocks, added once each so she can edit or delete them. */
+import { BLOCKS } from "./_blocks.js";
 
 const INDEX = "programs/index.json";
 const ASSIGN = "programs/assignments.json";
@@ -29,9 +31,21 @@ export async function getIndex() {
   if (!idx) {
     const p = showdownProgram();
     await writeJSON(`programs/${p.id}.json`, p);
-    idx = { defaultId: p.id, programs: [{ id: p.id, name: p.name, updatedAt: p.updatedAt }] };
+    idx = { defaultId: p.id, programs: [{ id: p.id, name: p.name, updatedAt: p.updatedAt }], seeded: ["showdown"] };
     await writeJSON(INDEX, idx);
   }
+  idx.seeded = idx.seeded || ["showdown"];
+  let changed = false;
+  for (const id of ["conditioning", "strength"]) {
+    if (idx.seeded.includes(id)) continue;
+    const p = { ...BLOCKS[id], updatedAt: new Date().toISOString() };
+    if (!idx.programs.some((x) => x.id === id)) {
+      await writeJSON(`programs/${id}.json`, p);
+      idx.programs.push({ id, name: p.name, updatedAt: p.updatedAt });
+    }
+    idx.seeded.push(id); changed = true;
+  }
+  if (changed) await writeJSON(INDEX, idx);
   return idx;
 }
 export async function getProgram(id) {

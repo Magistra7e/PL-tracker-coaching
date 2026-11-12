@@ -45,6 +45,8 @@ function prevVal(w,d,name,i){var nk=exKey(name);for(var x=w-1;x>=1;x--){var v=va
 function prevMain(w,d,i){for(var x=w-1;x>=1;x--){var v=val(x+"|"+d+"|main|"+i);if(v)return v;}return "";}
 function mb(n){return (n/1048576).toFixed(n<10485760?1:0)+" MB";}
 
+/* Meet day belongs to the competition prep program only. */
+function hasMeet(){return P&&(P.id==="showdown"||P.meet===true);}
 function unit(){return profile.unit==="kg"?"kg":"lb";}
 var LIFTS=[["squat","Squat"],["bench","Bench"],["deadlift","Deadlift"]];
 /* Meet attempts in kg: the lifter's own, or ~90/95/100% of their max. */
@@ -82,7 +84,8 @@ function render(){
  for(var w=1;w<=WEEKS;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of '+DAYS.length+' days done">'+w+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
- h+='</div><button class="wk meetbtn" data-w="meet" aria-pressed="'+(cur.w==="meet")+'">🏆 Meet day</button>';
+ h+='</div>';
+ if(hasMeet())h+='<button class="wk meetbtn" data-w="meet" aria-pressed="'+(cur.w==="meet")+'">🏆 Meet day</button>';
  if(cur.w==="meet"){h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
  h+='<div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
@@ -184,7 +187,7 @@ root.addEventListener("input",function(ev){var t=ev.target;
  if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
 window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
 
-function pickStart(){if(location.hash==="#meet"){cur.w="meet";return;}var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
+function pickStart(){if(location.hash==="#meet"&&hasMeet()){cur.w="meet";return;}var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
  if(m&&m[3])cur.mode=m[3].slice(1);
  if(m&&+m[1]>=1&&+m[1]<=WEEKS&&DAYS.some(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})){cur.w=+m[1];cur.d=DAYS.filter(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})[0].k;return;}
  for(var w=1;w<=WEEKS;w++){if(!DAYS.every(function(d){return isDone(w+"|"+d.k);})){cur.w=w;break;}}
