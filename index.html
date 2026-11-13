@@ -80,13 +80,15 @@ function maxesCard(){var m=profile.maxes||{},U=unit(),has=m.squat||m.bench||m.de
 function render(){
  var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>'+esc(P.name)+'</h1><span class="status" id="status"></span></div>';
  h+='<div class="userbar"><span>'+esc(me.email)+'</span><span>'+(me.isCoach?'<a href="/coach">Coach dashboard</a> · ':'')+'<button id="signout">Sign out</button></span></div>';
+ /* Meet day is used once, on the day of the meet, so it lives in its own menu apart from the training weeks. */
+ var meet=cur.w==="meet";
+ if(hasMeet())h+='<div class="modebar"><label for="view">View</label><select id="view"><option value="train"'+(meet?"":" selected")+'>Training</option><option value="meet"'+(meet?" selected":"")+'>🏆 Meet day</option></select></div>';
+ if(meet){h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
  h+='<div class="weeks" role="group" aria-label="Week">';
  for(var w=1;w<=WEEKS;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of '+DAYS.length+' days done">'+w+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
  h+='</div>';
- if(hasMeet())h+='<button class="wk meetbtn" data-w="meet" aria-pressed="'+(cur.w==="meet")+'">🏆 Meet day</button>';
- if(cur.w==="meet"){h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
  h+='<div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
   h+='<button class="day" data-d="'+d.k+'" aria-pressed="'+(d.k===cur.d)+'">'+d.n.replace(" ","<br>")+'<span class="chk">'+(dn?"✓ done":"&nbsp;")+'</span></button>';});
@@ -170,7 +172,7 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
  if(t.dataset.show){ui.att[t.dataset.show]=+t.dataset.i;render();return;}
  if(t.id==="meet-save"){var meet={};LIFTS.forEach(function(x){var a=[0,1,2].map(function(i){var el=document.getElementById("at-"+x[0]+i);return el?parseFloat(el.value):NaN;});if(a.every(function(n){return n>0;}))meet[x[0]]=a;});
   profile=Object.assign({},profile,{meet:meet});save();return;}
- if(t.dataset.w){cur.w=t.dataset.w==="meet"?"meet":+t.dataset.w;setHash();render();window.scrollTo(0,0);}
+ if(t.dataset.w){cur.w=+t.dataset.w;setHash();render();window.scrollTo(0,0);}
  else if(t.dataset.d){cur.d=t.dataset.d;setHash();render();window.scrollTo(0,0);}
  else if(t.id==="toggle-done"){var k2=cur.w+"|"+cur.d;draft.done[k2]=!isDone(k2);if(!!draft.done[k2]===!!state.done[k2])delete draft.done[k2];saveDraft();render();}
  else if(t.id==="save"){save();}
@@ -178,6 +180,7 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
 });
 root.addEventListener("change",function(ev){var ft=ev.target;
  if(ft.type==="file"&&ft.dataset.vk){handleFile(ft.dataset.vk,ft.files&&ft.files[0]);return;}
+ if(ft.id==="view"){if(ft.value==="meet"){if(cur.w!=="meet")ui.lastW=cur.w;cur.w="meet";}else cur.w=ui.lastW||1;setHash();render();window.scrollTo(0,0);return;}
  if(ft.id==="mode"){cur.mode=ft.value;setHash();render();}});
 root.addEventListener("input",function(ev){var t=ev.target;
  if(t.dataset&&t.dataset.att){var n=parseFloat(t.value),el=document.getElementById("mbar-"+t.dataset.att);
@@ -187,7 +190,8 @@ root.addEventListener("input",function(ev){var t=ev.target;
  if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
 window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
 
-function pickStart(){if(location.hash==="#meet"&&hasMeet()){cur.w="meet";return;}var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
+function pickStart(){pickTraining();if(location.hash==="#meet"&&hasMeet()){ui.lastW=cur.w;cur.w="meet";}}
+function pickTraining(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
  if(m&&m[3])cur.mode=m[3].slice(1);
  if(m&&+m[1]>=1&&+m[1]<=WEEKS&&DAYS.some(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})){cur.w=+m[1];cur.d=DAYS.filter(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})[0].k;return;}
  for(var w=1;w<=WEEKS;w++){if(!DAYS.every(function(d){return isDone(w+"|"+d.k);})){cur.w=w;break;}}
