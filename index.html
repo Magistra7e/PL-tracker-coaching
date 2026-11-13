@@ -26,7 +26,7 @@ var me={email:"",isCoach:false};
 var state={logs:{},done:{},videos:{}},profile={unit:"lb",maxes:{}};
 var draft={logs:{},done:{}},DKEY="sdp-draft-v3";
 var cur={w:1,d:"LL",mode:"bodi"};
-var ui={busy:{},msg:{},urls:{},att:{},saving:false,saveErr:""};
+var ui={busy:{},msg:{},urls:{},att:{},attEdit:{},saving:false,saveErr:""}; /* attEdit: meet attempts typed but not saved yet, kept across re-renders */
 
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
@@ -57,9 +57,10 @@ function renderMeet(){var h='',tot=0,ok=true;
  LIFTS.forEach(function(x){var a=meetAttempts(x[0]);
   h+='<div class="ex"><div class="nm"><span>'+x[1]+'</span><small>'+(a?"":"add your max first")+'</small></div>';
   if(!a){ok=false;h+='</div>';return;}
+  var raw=ui.attEdit[x[0]]||{};a=a.map(function(v,i){var n=parseFloat(raw[i]);return n>0?n:v;});
   tot+=a[2];
   var pick=ui.att[x[0]]||0;
-  h+='<div class="sets">';a.forEach(function(v,i){h+='<div class="set"><label for="at-'+x[0]+i+'">'+["Opener","Second","Third"][i]+'</label><input class="w" id="at-'+x[0]+i+'" data-att="'+x[0]+'" data-i="'+i+'" inputmode="decimal" value="'+Plates.fmt(v)+'"></div>';});
+  h+='<div class="sets">';a.forEach(function(v,i){h+='<div class="set"><label for="at-'+x[0]+i+'">'+["Opener","Second","Third"][i]+'</label><input class="w" id="at-'+x[0]+i+'" data-att="'+x[0]+'" data-i="'+i+'" inputmode="decimal" value="'+(i in raw?esc(raw[i]):Plates.fmt(v))+'"></div>';});
   h+='</div><div class="vrow" role="group" aria-label="Show bar for" style="margin-top:8px">';
   a.forEach(function(v,i){h+='<button class="mini'+(i===pick?' primary':'')+'" data-show="'+x[0]+'" data-i="'+i+'">'+["Opener","Second","Third"][i]+'</button>';});
   h+='</div><div id="mbar-'+x[0]+'">'+Plates.barSVG(a[pick])+'</div></div>';});
@@ -80,18 +81,23 @@ function maxesCard(){var m=profile.maxes||{},U=unit(),has=m.squat||m.bench||m.de
 function render(){
  var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>'+esc(P.name)+'</h1><span class="status" id="status"></span></div>';
  h+='<div class="userbar"><span>'+esc(me.email)+'</span><span>'+(me.isCoach?'<a href="/coach">Coach dashboard</a> · ':'')+'<button id="signout">Sign out</button></span></div>';
+ /* Meet day is used once, on the day of the meet, so it lives in its own menu apart from the training weeks. */
+ /* It shares the header's last row with the Accessories menu so it doesn't add height to the training screen. */
+ var meet=cur.w==="meet";
+ var vs=hasMeet()?'<select id="view" aria-label="View"><option value="train"'+(meet?"":" selected")+'>Training</option><option value="meet"'+(meet?" selected":"")+'>🏆 Meet day</option></select>':'';
+ if(meet){if(vs)h+='<div class="modebar">'+vs+'</div>';
+  h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
  h+='<div class="weeks" role="group" aria-label="Week">';
  for(var w=1;w<=WEEKS;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of '+DAYS.length+' days done">'+w+'<span class="dots" aria-hidden="true">';
   DAYS.forEach(function(d){h+='<i class="'+(isDone(w+"|"+d.k)?"on":"")+'"></i>';});h+='</span></button>';}
  h+='</div>';
- if(hasMeet())h+='<button class="wk meetbtn" data-w="meet" aria-pressed="'+(cur.w==="meet")+'">🏆 Meet day</button>';
- if(cur.w==="meet"){h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
  h+='<div class="days" role="group" aria-label="Day">';
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
   h+='<button class="day" data-d="'+d.k+'" aria-pressed="'+(d.k===cur.d)+'">'+d.n.replace(" ","<br>")+'<span class="chk">'+(dn?"✓ done":"&nbsp;")+'</span></button>';});
  h+='</div>';
- if(B)h+='<div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
+ var ms=B?'<select id="mode" aria-label="Accessories"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My accessories</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s accessories</option></select>':'';
+ if(vs||ms)h+='<div class="modebar">'+vs+ms+'</div>';
  h+='</div></header><div class="wrap"><main>';
  h+=maxesCard();
  var wn=(P.weeks[cur.w-1]||{}).notes;
@@ -124,10 +130,11 @@ function render(){
  root.innerHTML=h;renderStatus();
  var a=document.getElementById("wk"+cur.w),strip=root.querySelector(".weeks");if(a&&strip)strip.scrollLeft=Math.max(0,a.offsetLeft-strip.offsetLeft-(strip.clientWidth-a.offsetWidth)/2);
 }
+function attDirty(){return Object.keys(ui.attEdit).length>0;}
 function renderStatus(){var el=document.getElementById("status"),b=document.getElementById("save");if(!el)return;
  if(ui.saving){el.textContent="Saving…";el.className="status";}
  else if(ui.saveErr){el.textContent=ui.saveErr;el.className="status dirty";}
- else if(dirty()){el.textContent="Unsaved changes";el.className="status dirty";}
+ else if(dirty()||attDirty()){el.textContent="Unsaved changes";el.className="status dirty";}
  else{el.textContent="All saved";el.className="status";}
  if(b){b.disabled=ui.saving||!dirty();b.textContent=ui.saving?"Saving…":dirty()?"Save workout":"Saved";}}
 
@@ -158,8 +165,8 @@ function merged(){var logs=Object.assign({},state.logs),done=Object.assign({},st
 function save(nextVideos){var mm=merged(),videos=nextVideos||state.videos;
  ui.saving=true;ui.saveErr="";renderStatus();
  return SDP.api("/api/me",{method:"PUT",body:JSON.stringify({logs:mm.logs,done:mm.done,videos:videos,mode:cur.mode,profile:profile})})
- .then(function(){state.logs=mm.logs;state.done=mm.done;state.videos=videos;draft={logs:{},done:{}};saveDraft();ui.saving=false;render();})
- .catch(function(e){ui.saving=false;ui.saveErr=e.status===401?"Signed out. Reload to sign in.":"Couldn't save. Try again.";render();});}
+ .then(function(){state.logs=mm.logs;state.done=mm.done;state.videos=videos;draft={logs:{},done:{}};saveDraft();if(ui.attSaving)ui.attEdit={};ui.attSaving=false;ui.saving=false;render();})
+ .catch(function(e){ui.attSaving=false;ui.saving=false;ui.saveErr=e.status===401?"Signed out. Reload to sign in.":"Couldn't save. Try again.";render();});}
 function setHash(){if(cur.w==="meet"){try{history.replaceState(null,"","#meet");}catch(e){}return;}var h="w"+cur.w+"-"+cur.d.toLowerCase()+(cur.mode==="coach"?"-coach":"");try{history.replaceState(null,"","#"+h);}catch(e){}}
 
 root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(!t)return;
@@ -168,9 +175,10 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
   var bw=parseFloat(document.getElementById("mx-bw").value);
   profile={unit:document.getElementById("mx-unit").value==="kg"?"kg":"lb",maxes:mx,bw:bw>0?bw:undefined,sex:document.getElementById("mx-sex").value,meet:profile.meet||{}};save();return;}
  if(t.dataset.show){ui.att[t.dataset.show]=+t.dataset.i;render();return;}
- if(t.id==="meet-save"){var meet={};LIFTS.forEach(function(x){var a=[0,1,2].map(function(i){var el=document.getElementById("at-"+x[0]+i);return el?parseFloat(el.value):NaN;});if(a.every(function(n){return n>0;}))meet[x[0]]=a;});
-  profile=Object.assign({},profile,{meet:meet});save();return;}
- if(t.dataset.w){cur.w=t.dataset.w==="meet"?"meet":+t.dataset.w;setHash();render();window.scrollTo(0,0);}
+ if(t.id==="meet-save"){var meet=Object.assign({},profile.meet||{});LIFTS.forEach(function(x){var prev=meetAttempts(x[0]);if(!prev)return;
+   meet[x[0]]=prev.map(function(v,i){var el=document.getElementById("at-"+x[0]+i),n=el?parseFloat(el.value):NaN;return n>0?n:v;});});
+  profile=Object.assign({},profile,{meet:meet});ui.attSaving=true;save();return;}
+ if(t.dataset.w){cur.w=+t.dataset.w;setHash();render();window.scrollTo(0,0);}
  else if(t.dataset.d){cur.d=t.dataset.d;setHash();render();window.scrollTo(0,0);}
  else if(t.id==="toggle-done"){var k2=cur.w+"|"+cur.d;draft.done[k2]=!isDone(k2);if(!!draft.done[k2]===!!state.done[k2])delete draft.done[k2];saveDraft();render();}
  else if(t.id==="save"){save();}
@@ -178,16 +186,20 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
 });
 root.addEventListener("change",function(ev){var ft=ev.target;
  if(ft.type==="file"&&ft.dataset.vk){handleFile(ft.dataset.vk,ft.files&&ft.files[0]);return;}
+ if(ft.id==="view"){if(ft.value==="meet"){if(cur.w!=="meet")ui.lastW=cur.w;cur.w="meet";}else if(ui.lastW)cur.w=ui.lastW;else{cur.w=1;pickTraining();}setHash();render();window.scrollTo(0,0);return;}
  if(ft.id==="mode"){cur.mode=ft.value;setHash();render();}});
 root.addEventListener("input",function(ev){var t=ev.target;
- if(t.dataset&&t.dataset.att){var n=parseFloat(t.value),el=document.getElementById("mbar-"+t.dataset.att);
+ if(t.dataset&&t.dataset.att){var lk=t.dataset.att,base=meetAttempts(lk)||[],ed=ui.attEdit[lk]=ui.attEdit[lk]||{};
+  if(parseFloat(t.value)===base[+t.dataset.i])delete ed[t.dataset.i];else ed[t.dataset.i]=t.value;if(!Object.keys(ed).length)delete ui.attEdit[lk];renderStatus();
+  var n=parseFloat(t.value),el=document.getElementById("mbar-"+t.dataset.att);
   if(el&&n>0&&(ui.att[t.dataset.att]||0)===+t.dataset.i)el.innerHTML=Plates.barSVG(n);
   var sb=document.getElementById("meet-save");if(sb)sb.textContent="Save attempts";return;}
  if(!t.dataset||!t.dataset.k)return;var k=t.dataset.k,v=t.value.trim();
  if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
-window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
+window.addEventListener("beforeunload",function(e){if(dirty()||attDirty()){e.preventDefault();e.returnValue="";}});
 
-function pickStart(){if(location.hash==="#meet"&&hasMeet()){cur.w="meet";return;}var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
+function pickStart(){pickTraining();if(location.hash==="#meet"&&hasMeet()){ui.lastW=cur.w;cur.w="meet";}}
+function pickTraining(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
  if(m&&m[3])cur.mode=m[3].slice(1);
  if(m&&+m[1]>=1&&+m[1]<=WEEKS&&DAYS.some(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})){cur.w=+m[1];cur.d=DAYS.filter(function(d){return d.k.toLowerCase()===m[2].toLowerCase();})[0].k;return;}
  for(var w=1;w<=WEEKS;w++){if(!DAYS.every(function(d){return isDone(w+"|"+d.k);})){cur.w=w;break;}}
