@@ -26,7 +26,7 @@ var me={email:"",isCoach:false};
 var state={logs:{},done:{},videos:{}},profile={unit:"lb",maxes:{}};
 var draft={logs:{},done:{}},DKEY="sdp-draft-v3";
 var cur={w:1,d:"LL",mode:"bodi"};
-var ui={busy:{},msg:{},urls:{},att:{},saving:false,saveErr:""};
+var ui={busy:{},msg:{},urls:{},att:{},attEdit:{},saving:false,saveErr:""}; /* attEdit: meet attempts typed but not saved yet, kept across re-renders */
 
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function slug(s){return s.toLowerCase().replace(/[^a-z0-9]+/g,"-");}
@@ -57,9 +57,10 @@ function renderMeet(){var h='',tot=0,ok=true;
  LIFTS.forEach(function(x){var a=meetAttempts(x[0]);
   h+='<div class="ex"><div class="nm"><span>'+x[1]+'</span><small>'+(a?"":"add your max first")+'</small></div>';
   if(!a){ok=false;h+='</div>';return;}
+  var raw=ui.attEdit[x[0]]||{};a=a.map(function(v,i){var n=parseFloat(raw[i]);return n>0?n:v;});
   tot+=a[2];
   var pick=ui.att[x[0]]||0;
-  h+='<div class="sets">';a.forEach(function(v,i){h+='<div class="set"><label for="at-'+x[0]+i+'">'+["Opener","Second","Third"][i]+'</label><input class="w" id="at-'+x[0]+i+'" data-att="'+x[0]+'" data-i="'+i+'" inputmode="decimal" value="'+Plates.fmt(v)+'"></div>';});
+  h+='<div class="sets">';a.forEach(function(v,i){h+='<div class="set"><label for="at-'+x[0]+i+'">'+["Opener","Second","Third"][i]+'</label><input class="w" id="at-'+x[0]+i+'" data-att="'+x[0]+'" data-i="'+i+'" inputmode="decimal" value="'+(i in raw?esc(raw[i]):Plates.fmt(v))+'"></div>';});
   h+='</div><div class="vrow" role="group" aria-label="Show bar for" style="margin-top:8px">';
   a.forEach(function(v,i){h+='<button class="mini'+(i===pick?' primary':'')+'" data-show="'+x[0]+'" data-i="'+i+'">'+["Opener","Second","Third"][i]+'</button>';});
   h+='</div><div id="mbar-'+x[0]+'">'+Plates.barSVG(a[pick])+'</div></div>';});
@@ -81,9 +82,11 @@ function render(){
  var h='<header class="top"><div class="wrap"><div class="titlebar"><h1>'+esc(P.name)+'</h1><span class="status" id="status"></span></div>';
  h+='<div class="userbar"><span>'+esc(me.email)+'</span><span>'+(me.isCoach?'<a href="/coach">Coach dashboard</a> · ':'')+'<button id="signout">Sign out</button></span></div>';
  /* Meet day is used once, on the day of the meet, so it lives in its own menu apart from the training weeks. */
+ /* It shares the header's last row with the Accessories menu so it doesn't add height to the training screen. */
  var meet=cur.w==="meet";
- if(hasMeet())h+='<div class="modebar"><label for="view">View</label><select id="view"><option value="train"'+(meet?"":" selected")+'>Training</option><option value="meet"'+(meet?" selected":"")+'>🏆 Meet day</option></select></div>';
- if(meet){h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
+ var vs=hasMeet()?'<select id="view" aria-label="View"><option value="train"'+(meet?"":" selected")+'>Training</option><option value="meet"'+(meet?" selected":"")+'>🏆 Meet day</option></select>':'';
+ if(meet){if(vs)h+='<div class="modebar"><label for="view">View</label>'+vs+'</div>';
+  h+='</div></header><div class="wrap"><main>'+maxesCard()+renderMeet()+'</main></div>';root.innerHTML=h;renderStatus();return;}
  h+='<div class="weeks" role="group" aria-label="Week">';
  for(var w=1;w<=WEEKS;w++){var nd=DAYS.filter(function(d){return isDone(w+"|"+d.k);}).length;
   h+='<button class="wk'+(nd===DAYS.length?' full':'')+'" id="wk'+w+'" data-w="'+w+'" aria-pressed="'+(w===cur.w)+'" style="--pc:var(--line)" aria-label="Week '+w+', '+nd+' of '+DAYS.length+' days done">'+w+'<span class="dots" aria-hidden="true">';
@@ -93,7 +96,10 @@ function render(){
  DAYS.forEach(function(d){var dn=isDone(cur.w+"|"+d.k);
   h+='<button class="day" data-d="'+d.k+'" aria-pressed="'+(d.k===cur.d)+'">'+d.n.replace(" ","<br>")+'<span class="chk">'+(dn?"✓ done":"&nbsp;")+'</span></button>';});
  h+='</div>';
- if(B)h+='<div class="modebar"><label for="mode">Accessories</label><select id="mode"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>My version</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>Coach\'s program</option></select></div>';
+ var ms=B?'<select id="mode" aria-label="Accessories"><option value="bodi"'+(cur.mode==="bodi"?" selected":"")+'>'+(vs?'My accessories':'My version')+'</option><option value="coach"'+(cur.mode==="coach"?" selected":"")+'>'+(vs?'Coach\'s accessories':'Coach\'s program')+'</option></select>':'';
+ if(vs&&ms)h+='<div class="modebar">'+vs+ms+'</div>';
+ else if(vs)h+='<div class="modebar"><label for="view">View</label>'+vs+'</div>';
+ else if(ms)h+='<div class="modebar"><label for="mode">Accessories</label>'+ms+'</div>';
  h+='</div></header><div class="wrap"><main>';
  h+=maxesCard();
  var wn=(P.weeks[cur.w-1]||{}).notes;
@@ -171,7 +177,7 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
   profile={unit:document.getElementById("mx-unit").value==="kg"?"kg":"lb",maxes:mx,bw:bw>0?bw:undefined,sex:document.getElementById("mx-sex").value,meet:profile.meet||{}};save();return;}
  if(t.dataset.show){ui.att[t.dataset.show]=+t.dataset.i;render();return;}
  if(t.id==="meet-save"){var meet={};LIFTS.forEach(function(x){var a=[0,1,2].map(function(i){var el=document.getElementById("at-"+x[0]+i);return el?parseFloat(el.value):NaN;});if(a.every(function(n){return n>0;}))meet[x[0]]=a;});
-  profile=Object.assign({},profile,{meet:meet});save();return;}
+  profile=Object.assign({},profile,{meet:meet});ui.attEdit={};save();return;}
  if(t.dataset.w){cur.w=+t.dataset.w;setHash();render();window.scrollTo(0,0);}
  else if(t.dataset.d){cur.d=t.dataset.d;setHash();render();window.scrollTo(0,0);}
  else if(t.id==="toggle-done"){var k2=cur.w+"|"+cur.d;draft.done[k2]=!isDone(k2);if(!!draft.done[k2]===!!state.done[k2])delete draft.done[k2];saveDraft();render();}
@@ -180,15 +186,15 @@ root.addEventListener("click",function(ev){var t=ev.target.closest("button");if(
 });
 root.addEventListener("change",function(ev){var ft=ev.target;
  if(ft.type==="file"&&ft.dataset.vk){handleFile(ft.dataset.vk,ft.files&&ft.files[0]);return;}
- if(ft.id==="view"){if(ft.value==="meet"){if(cur.w!=="meet")ui.lastW=cur.w;cur.w="meet";}else cur.w=ui.lastW||1;setHash();render();window.scrollTo(0,0);return;}
+ if(ft.id==="view"){if(ft.value==="meet"){if(cur.w!=="meet")ui.lastW=cur.w;cur.w="meet";}else if(ui.lastW)cur.w=ui.lastW;else{cur.w=1;pickTraining();}setHash();render();window.scrollTo(0,0);return;}
  if(ft.id==="mode"){cur.mode=ft.value;setHash();render();}});
 root.addEventListener("input",function(ev){var t=ev.target;
- if(t.dataset&&t.dataset.att){var n=parseFloat(t.value),el=document.getElementById("mbar-"+t.dataset.att);
+ if(t.dataset&&t.dataset.att){(ui.attEdit[t.dataset.att]=ui.attEdit[t.dataset.att]||{})[t.dataset.i]=t.value;var n=parseFloat(t.value),el=document.getElementById("mbar-"+t.dataset.att);
   if(el&&n>0&&(ui.att[t.dataset.att]||0)===+t.dataset.i)el.innerHTML=Plates.barSVG(n);
   var sb=document.getElementById("meet-save");if(sb)sb.textContent="Save attempts";return;}
  if(!t.dataset||!t.dataset.k)return;var k=t.dataset.k,v=t.value.trim();
  if(v===(state.logs[k]||""))delete draft.logs[k];else draft.logs[k]=v;saveDraft();renderStatus();});
-window.addEventListener("beforeunload",function(e){if(dirty()){e.preventDefault();e.returnValue="";}});
+window.addEventListener("beforeunload",function(e){if(dirty()||Object.keys(ui.attEdit).length){e.preventDefault();e.returnValue="";}});
 
 function pickStart(){pickTraining();if(location.hash==="#meet"&&hasMeet()){ui.lastW=cur.w;cur.w="meet";}}
 function pickTraining(){var m=/^#w(\d{1,2})-([a-z0-9_-]+?)(-coach|-bodi)?$/i.exec(location.hash||"");
